@@ -22,7 +22,11 @@ Future<void> main() async {
   final container = ProviderContainer();
   // Must be wired before the first OAuth redirect ever arrives — this is
   // the only moment Supabase hands back the GitHub token (see AuthService).
-  container.read(authServiceProvider).listenAndPersistGithubToken();
+  container.read(authServiceProvider).listenAndPersistGithubToken(
+    onSaved: () => container
+      ..invalidate(githubTokenProvider)
+      ..invalidate(githubLoginProvider),
+  );
 
   runApp(
     UncontrolledProviderScope(

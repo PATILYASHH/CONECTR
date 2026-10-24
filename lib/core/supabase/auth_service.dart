@@ -24,21 +24,37 @@ class AuthService {
 
   bool get isSignedIn => _auth.currentSession != null;
 
+  /// Set for email sign-ins, and for GitHub ones whose GitHub email is
+  /// visible to the OAuth app.
+  String? get currentEmail => _auth.currentUser?.email;
+
   /// Call once at startup (after `Supabase.initialize`) to persist the
-  /// GitHub token the instant a sign-in redirect delivers one.
-  void listenAndPersistGithubToken() {
+  /// GitHub token the instant a sign-in redirect delivers one — from a
+  /// GitHub sign-in or from [connectGithub] alike. [onSaved] runs after
+  /// it's stored, so whatever cached "no token yet" can re-read it.
+  void listenAndPersistGithubToken({required void Function() onSaved}) {
     _auth.onAuthStateChange.listen((state) async {
       final session = state.session;
       final providerToken = session?.providerToken;
-      if (providerToken != null) {
-        await _secureStore.setGithubToken(providerToken);
-        final login = session!.user.userMetadata?['user_name'] as String? ??
-            session.user.userMetadata?['preferred_username'] as String?;
-        if (login != null) {
-          await _secureStore.setGithubLogin(login);
-        }
+      if (providerToken == null) return;
+      await _secureStore.setGithubToken(providerToken);
+      final login = _githubLogin(session!.user);
+      if (login != null) {
+        await _secureStore.setGithubLogin(login);
       }
+      onSaved();
     });
+  }
+
+  /// Read from the GitHub identity rather than the top-level metadata: for
+  /// an email account that connected GitHub later, that metadata came from
+  /// the email sign-up and has no `user_name`.
+  static String? _githubLogin(User user) {
+    final github =
+        user.identities?.where((i) => i.provider == 'github').firstOrNull;
+    final data = github?.identityData ?? user.userMetadata;
+    return data?['user_name'] as String? ??
+        data?['preferred_username'] as String?;
   }
 
   Future<bool> signInWithGithub() {
@@ -51,9 +67,39 @@ class AuthService {
     );
   }
 
+  /// Emails a 6-digit sign-in code. Creates the account on first use —
+  /// there's no separate sign-up. The code only appears in the email if
+  /// the Supabase "Magic Link" template includes `{{ .Token }}`.
+  Future<void> sendEmailCode(String email) {
+    return _auth.signInWithOtp(email: email, shouldCreateUser: true);
+  }
+
+  Future<void> verifyEmailCode(String email, String code) async {
+    await _auth.verifyOTP(email: email, token: code, type: OtpType.email);
+  }
+
+  /// Gets a GitHub token for backups without changing which account this
+  /// is. A GitHub sign-in already has the identity, so signing in again
+  /// just hands back a fresh token. An email account gets GitHub attached
+  /// to it instead — Supabase "manual linking", which must be enabled under
+  /// Authentication → Sign In / Providers.
+  Future<bool> connectGithub() {
+    final hasGithub = _auth.currentUser?.identities
+            ?.any((i) => i.provider == 'github') ??
+        false;
+    if (hasGithub) return signInWithGithub();
+    return _auth.linkIdentity(
+      OAuthProvider.github,
+      redirectTo: AppConfig.githubOAuthRedirect,
+      scopes: 'repo',
+    );
+  }
+
   Future<void> signOut() async {
-    await _auth.signOut();
+    // Store first: signing out re-reads every per-account provider (see
+    // `currentUserIdProvider`), and they should find it already empty.
     await _secureStore.clearAll();
+    await _auth.signOut();
   }
 
   Future<String?> getStoredGithubToken() => _secureStore.getGithubToken();

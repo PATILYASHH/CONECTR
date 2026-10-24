@@ -18,14 +18,7 @@ class SyncHomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connector'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
-          ),
-        ],
+        actions: const [SettingsButton()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),

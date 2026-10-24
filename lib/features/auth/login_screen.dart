@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import 'email_login_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -57,7 +58,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               FilledButton.icon(
                 onPressed: _launching ? null : _signIn,
                 icon: const Icon(Icons.code),
-                label: Text(_launching ? 'Opening GitHub…' : 'Sign in with GitHub'),
+                label: Text(
+                  _launching ? 'Opening GitHub…' : 'Continue with GitHub',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _launching
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const EmailLoginScreen(),
+                          ),
+                        ),
+                icon: const Icon(Icons.mail_outline),
+                label: const Text('Continue with email'),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 16),

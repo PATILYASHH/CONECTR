@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../settings/settings_screen.dart';
 
 class FolderSetupScreen extends ConsumerStatefulWidget {
   const FolderSetupScreen({super.key});
@@ -36,7 +37,10 @@ class _FolderSetupScreenState extends ConsumerState<FolderSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect to XPENC')),
+      appBar: AppBar(
+        title: const Text('Connect to XPENC'),
+        actions: const [SettingsButton()],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

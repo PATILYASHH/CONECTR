@@ -55,6 +55,8 @@ class SyncController extends Notifier<SyncStatus> {
 
   @override
   SyncStatus build() {
+    // Start over for a different account (sign-out included).
+    ref.watch(currentUserIdProvider);
     _loadLastSyncedAt();
     return const SyncStatus();
   }
