@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
-import '../settings/settings_screen.dart';
+import '../../core/widgets/open_xpenc_button.dart';
 
 class FolderSetupScreen extends ConsumerStatefulWidget {
   const FolderSetupScreen({super.key});
@@ -39,7 +39,8 @@ class _FolderSetupScreenState extends ConsumerState<FolderSetupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connect to XPENC'),
-        actions: const [SettingsButton()],
+        // The folder only exists after a first backup in XPENC.
+        actions: const [OpenXpencButton()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),

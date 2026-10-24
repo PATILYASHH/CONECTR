@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/providers.dart';
-import '../settings/settings_screen.dart';
 
 /// For an account with no GitHub token yet — an email sign-up, or a GitHub
 /// one whose token was cleared. The token lands via
@@ -37,10 +36,7 @@ class _ConnectGithubScreenState extends ConsumerState<ConnectGithubScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Backup'),
-        actions: const [SettingsButton()],
-      ),
+      appBar: AppBar(title: const Text('Backup')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

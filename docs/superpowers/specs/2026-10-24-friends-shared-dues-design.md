@@ -42,7 +42,9 @@ SQL editor (the project isn't on the CLI account).
 Tables, all with RLS on and nothing granted to `anon`:
 
 - `profiles(id → auth.users, username, display_name, created_at)`. Read:
-  self, plus accepted friends (phase 2). Insert/update: self only.
+  self, plus the other side of any of your friendship rows, pending ones
+  included — a request has to show who it's from (phase 2). Insert/update:
+  self only.
 - `friendships(id, requester_id, addressee_id, status pending|accepted|declined, created_at, responded_at)`.
   One row per unordered pair. Visible only to the two users. Only the
   addressee changes status. Sending a request to someone who already sent

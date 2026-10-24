@@ -43,6 +43,13 @@ dependencies:
   saf_util: ^3.1.0
   saf_stream: ^4.0.1
   intl: ^0.20.3
+  workmanager: ^0.10.10
+  flutter_local_notifications: ^22.3.2
+  device_info_plus: ^13.3.0
+  crypto: ^3.0.7
+  # XPENC's "Tell Connector" link (lib/features/sync/import_link_handler.dart);
+  # already in the lock through supabase_flutter.
+  app_links: ^7.2.1
 
 dev_dependencies:
   flutter_test:

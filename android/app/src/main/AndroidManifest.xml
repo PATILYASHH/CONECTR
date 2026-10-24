@@ -2,6 +2,9 @@
     <!-- Connector is the online half of XPENC: it talks to Supabase (auth)
          and the GitHub API (backup storage). XPENC itself stays offline. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- "New backup from <phone>" and "Backup paused" — see
+         app_notifications.dart. Asked for at runtime on Android 13+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Connector"
         android:name="${applicationName}"
@@ -36,6 +39,14 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="conectr" android:host="login-callback"/>
             </intent-filter>
+            <!-- XPENC's "Tell Connector", after importing the backup
+                 Connector pulled: conectr://imported?sha=… — see
+                 lib/core/backup/import_links.dart. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="conectr" android:host="imported"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -53,5 +64,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- XPENC, for the "Open XPENC" button after a pull. -->
+        <package android:name="com.yash.xpenc"/>
     </queries>
 </manifest>

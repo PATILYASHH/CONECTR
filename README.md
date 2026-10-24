@@ -82,16 +82,42 @@ directly.
 1. Sign in with GitHub.
 2. Point Connector at XPENC's `Download/BACKUP XPENC` folder (create a
    backup in XPENC first if that folder doesn't exist yet).
-3. **Backup now** pushes the newest local JSON backup to the
-   `XPENC-BACKUP` repo. **Restore latest** pulls the newest one from GitHub
+3. **Upload now** pushes the newest local JSON backup to the
+   `XPENC-BACKUP` repo. **Pull latest** pulls the newest one from GitHub
    back into that folder as `xpenc_backup.json` — then open XPENC →
    Settings → Backup & Restore → **Import from file** and pick it to
-   actually import it into the app's database. (XPENC's own Restore list
-   only shows files it named itself, `DDMMYYXPENCEBACKUP.json`, so the
-   pulled file won't appear there — and Connector only ever uploads files
-   matching that name, so it never pushes its own restored copy back up.)
+   actually import it into the app's database, and tap **I've imported
+   it** back in Connector. (XPENC's own Restore list only shows files it
+   named itself, `DDMMYYXPENCEBACKUP.json`, so the pulled file won't appear
+   there — and Connector only ever uploads files matching that name, so it
+   never pushes its own restored copy back up.)
+4. On a second phone, GitHub already holds the first phone's backup, so
+   Connector pulls it and won't upload until you either import it or pick
+   **Keep this phone's instead**.
+
+## Friends
+
+Run each file in `supabase/migrations/` once, in order, in the Supabase
+SQL Editor (the project isn't on the CLI account). `…0002_friends.sql`
+adds the `friendships` table this tab needs.
+
+- **Finding people** is exact-username only (`find_user`) — Connector never
+  lists or suggests anyone.
+- **Requests** go through `send_friend_request`; asking someone who already
+  asked you makes you friends at once. Only the person asked can answer
+  (`respond_friend_request`). Cancelling and unfriending delete the row.
+- **Declining is quiet**: the sender keeps seeing "Requested".
+- **Live**: the tab listens to Realtime while Connector is open and re-reads
+  the list on every change and on every return to the app.
+- **Shared owes & dues** between friends are phases 3–4 of
+  `docs/superpowers/specs/2026-10-24-friends-shared-dues-design.md` — not
+  built yet.
 
 ## Not yet built (flagged, not silently skipped)
+
+- **Friend-request notifications.** A request shows up live while
+  Connector is open, and as a badge on the Friends tab the next time it
+  opens — there's no push notification when it's closed.
 
 - **Encryption before upload.** The backup currently goes to GitHub as
   plain JSON. Even in a private repo, that's a new trust dependency XPENC's
@@ -99,9 +125,19 @@ directly.
   before push — XPENC's existing master-recovery-phrase infrastructure
   (`lib/features/security/master_phrase_*`) would be a natural key source,
   reused rather than inventing a second secret for the user to manage.
-- **Conflict handling.** Today it's last-write-wins: whichever device last
-  ran Backup/Restore overwrites the single `xpenc_backup.json` in the repo.
-  Fine for one person's two-three devices; would need real merge logic if
-  that stops being true.
-- **Auto-sync.** Everything above is manual (open Connector, tap a button).
-  No background scheduling yet.
+- **Conflict handling.** Fast-forward only, not merge: a phone uploads
+  only if GitHub's backup is one it already has — its own last upload, or
+  one it pulled and the user confirmed importing ("I've imported it"). File
+  times aren't trusted for this: XPENC's auto-backup runs whenever XPENC
+  opens, so a phone with week-old data writes a brand-new file of it just
+  before importing the other phone's backup. Each commit records the phone
+  in `Connector-*` trailer lines. When GitHub's backup is another phone's,
+  this phone pulls it and holds its own uploads until the user imports it
+  or picks "Keep this phone's instead". Two phones with *different* new
+  data still can't be combined — that would need real merge logic.
+- **Instant pull.** Auto-sync (Settings → Auto-sync) runs as a WorkManager
+  job — every ~15 min for "After every XPENC backup", otherwise hourly —
+  and whenever Connector opens. Learning about a new backup the moment
+  it's pushed would need a server sending push notifications.
+- **Auto-import.** A pulled backup only lands in the folder; importing it
+  stays a manual step in XPENC, since it replaces all of XPENC's data.

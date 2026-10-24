@@ -92,10 +92,7 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
               autofillHints: const [AutofillHints.email],
               autofocus: true,
               enabled: !_busy,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Email'),
               onSubmitted: (_) => _sendCode(),
             ),
             const SizedBox(height: 16),
@@ -116,7 +113,6 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
               enabled: !_busy,
               decoration: const InputDecoration(
                 labelText: 'Code',
-                border: OutlineInputBorder(),
                 counterText: '',
               ),
               onSubmitted: (_) => _verify(),
@@ -135,9 +131,9 @@ class _EmailLoginScreenState extends ConsumerState<EmailLoginScreen> {
               onPressed: _busy
                   ? null
                   : () => setState(() {
-                        _sentTo = null;
-                        _error = null;
-                      }),
+                      _sentTo = null;
+                      _error = null;
+                    }),
               child: const Text('Use a different email'),
             ),
           ],

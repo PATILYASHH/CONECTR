@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../background/auto_sync.dart';
 import '../config/app_config.dart';
 import '../storage/secure_store.dart';
 
@@ -42,6 +43,10 @@ class AuthService {
       if (login != null) {
         await _secureStore.setGithubLogin(login);
       }
+      // A fresh token is exactly what a "Reconnect GitHub" problem needed.
+      await _secureStore.updateSyncState((s) {
+        if (s.problemNeedsReconnect) s.clearProblem();
+      });
       onSaved();
     });
   }
@@ -50,8 +55,9 @@ class AuthService {
   /// an email account that connected GitHub later, that metadata came from
   /// the email sign-up and has no `user_name`.
   static String? _githubLogin(User user) {
-    final github =
-        user.identities?.where((i) => i.provider == 'github').firstOrNull;
+    final github = user.identities
+        ?.where((i) => i.provider == 'github')
+        .firstOrNull;
     final data = github?.identityData ?? user.userMetadata;
     return data?['user_name'] as String? ??
         data?['preferred_username'] as String?;
@@ -84,8 +90,8 @@ class AuthService {
   /// to it instead — Supabase "manual linking", which must be enabled under
   /// Authentication → Sign In / Providers.
   Future<bool> connectGithub() {
-    final hasGithub = _auth.currentUser?.identities
-            ?.any((i) => i.provider == 'github') ??
+    final hasGithub =
+        _auth.currentUser?.identities?.any((i) => i.provider == 'github') ??
         false;
     if (hasGithub) return signInWithGithub();
     return _auth.linkIdentity(
@@ -96,7 +102,9 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    // Store first: signing out re-reads every per-account provider (see
+    // Nothing should keep syncing a signed-out account in the background.
+    await AutoSyncScheduler.cancel();
+    // Store next: signing out re-reads every per-account provider (see
     // `currentUserIdProvider`), and they should find it already empty.
     await _secureStore.clearAll();
     await _auth.signOut();

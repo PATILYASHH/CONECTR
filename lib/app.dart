@@ -5,8 +5,12 @@ import 'core/providers.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/status_screens.dart';
 import 'features/auth/login_screen.dart';
+import 'features/home/home_shell.dart';
 import 'features/profile/username_screen.dart';
-import 'features/sync/backup_gate.dart';
+
+/// For messages from outside any screen — the answer to XPENC's "Tell
+/// Connector" link (see `import_link_handler.dart`).
+final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class ConectrApp extends StatelessWidget {
   const ConectrApp({super.key});
@@ -14,6 +18,7 @@ class ConectrApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: appMessengerKey,
       title: 'Connector',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
@@ -24,8 +29,8 @@ class ConectrApp extends StatelessWidget {
 }
 
 /// Checked in order: signed in? picked a username? GitHub and the backup
-/// folder are asked for later, by [BackupGate] — an email account gets in
-/// without ever touching GitHub.
+/// folder are asked for later, inside the Backup tab (`BackupGate`) — an
+/// email account gets in without ever touching GitHub.
 class _Gate extends ConsumerWidget {
   const _Gate();
 
@@ -47,7 +52,7 @@ class _Gate extends ConsumerWidget {
             message: "Couldn't load your profile.\n\n$e",
             onRetry: () => ref.invalidate(myProfileProvider),
           ),
-          data: (p) => p == null ? const UsernameScreen() : const BackupGate(),
+          data: (p) => p == null ? const UsernameScreen() : const HomeShell(),
         );
       },
     );

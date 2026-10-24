@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/profile/profile_repository.dart';
 import '../../core/profile/username.dart';
+import '../../core/profile/username_input.dart';
 import '../../core/providers.dart';
 
 enum _Availability { unknown, checking, available, taken, unreachable }
@@ -53,8 +53,9 @@ class _UsernameScreenState extends ConsumerState<UsernameScreen> {
   Future<void> _checkAvailability(String name) async {
     _Availability result;
     try {
-      final free =
-          await ref.read(profileRepositoryProvider).isUsernameAvailable(name);
+      final free = await ref
+          .read(profileRepositoryProvider)
+          .isUsernameAvailable(name);
       result = free ? _Availability.available : _Availability.taken;
     } catch (_) {
       result = _Availability.unreachable;
@@ -135,14 +136,10 @@ class _UsernameScreenState extends ConsumerState<UsernameScreen> {
             autocorrect: false,
             enableSuggestions: false,
             maxLength: Username.maxLength,
-            inputFormatters: [
-              _LowerCaseFormatter(),
-              FilteringTextInputFormatter.allow(RegExp('[a-z0-9_]')),
-            ],
+            inputFormatters: usernameInputFormatters,
             decoration: InputDecoration(
               labelText: 'Username',
               prefixText: '@',
-              border: const OutlineInputBorder(),
               helperText: _helperText,
               errorText: _errorText,
             ),
@@ -165,17 +162,5 @@ class _UsernameScreenState extends ConsumerState<UsernameScreen> {
         ],
       ),
     );
-  }
-}
-
-/// Shows what will be stored as it's typed, instead of silently
-/// lowercasing on save.
-class _LowerCaseFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    return newValue.copyWith(text: newValue.text.toLowerCase());
   }
 }

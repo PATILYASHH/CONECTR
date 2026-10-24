@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'core/background/auto_sync.dart';
 import 'core/config/app_config.dart';
 import 'core/providers.dart';
+import 'features/sync/import_link_handler.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,21 +20,22 @@ Future<void> main() async {
     url: AppConfig.supabaseUrl,
     publishableKey: AppConfig.supabaseAnonKey,
   );
+  await AutoSyncScheduler.initialize();
 
   final container = ProviderContainer();
   // Must be wired before the first OAuth redirect ever arrives — this is
   // the only moment Supabase hands back the GitHub token (see AuthService).
-  container.read(authServiceProvider).listenAndPersistGithubToken(
-    onSaved: () => container
-      ..invalidate(githubTokenProvider)
-      ..invalidate(githubLoginProvider),
-  );
+  container
+      .read(authServiceProvider)
+      .listenAndPersistGithubToken(
+        onSaved: () => container
+          ..invalidate(githubTokenProvider)
+          ..invalidate(githubLoginProvider),
+      );
+  listenForImportLinks(container);
 
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const ConectrApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const ConectrApp()),
   );
 }
 

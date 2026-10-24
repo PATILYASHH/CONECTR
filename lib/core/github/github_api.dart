@@ -13,11 +13,25 @@ class GithubApiException implements Exception {
   String toString() => 'GithubApiException($statusCode): $message';
 }
 
+/// A write refused because the file changed since it was last looked at —
+/// another phone uploaded in between.
+class GithubConflictException extends GithubApiException {
+  GithubConflictException(super.statusCode, super.message);
+}
+
 class GithubFile {
   GithubFile({required this.sha, required this.contentBytes});
 
   final String sha;
   final Uint8List contentBytes;
+}
+
+class GithubCommit {
+  GithubCommit({required this.sha, required this.message, required this.date});
+
+  final String sha;
+  final String message;
+  final DateTime date;
 }
 
 /// Thin wrapper over the GitHub REST API (Contents API + repo creation).
@@ -28,10 +42,10 @@ class GithubApi {
   static const _baseUrl = 'https://api.github.com';
 
   Map<String, String> _headers(String token) => {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      };
+    'Authorization': 'Bearer $token',
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
 
   Future<String> getAuthenticatedLogin(String token) async {
     final res = await http.get(
@@ -76,13 +90,17 @@ class GithubApi {
   /// that it comes back empty with `encoding: none`, so the bytes are
   /// fetched again via the raw media type (good up to 100 MB). Without this
   /// a large XPENC backup would "restore" as an empty file.
+  ///
+  /// [ref] reads it as of that commit instead of the branch's latest.
   Future<GithubFile?> getFile(
     String token,
     String owner,
     String repo,
-    String path,
-  ) async {
-    final uri = Uri.parse('$_baseUrl/repos/$owner/$repo/contents/$path');
+    String path, {
+    String? ref,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/repos/$owner/$repo/contents/$path')
+        .replace(queryParameters: ref == null ? null : {'ref': ref});
     final res = await http.get(
       uri,
       headers: {
@@ -109,10 +127,63 @@ class GithubApi {
     return GithubFile(sha: sha, contentBytes: raw.bodyBytes);
   }
 
-  /// Creates or updates [path] in [owner]/[repo]. Pass [existingSha] (from
-  /// a prior [getFile]) when overwriting — GitHub's Contents API rejects an
-  /// update without it as a conflict-prevention measure.
-  Future<void> putFile(
+  /// The blob sha of [path] as of commit [ref] — never its content, so a
+  /// large backup isn't downloaded just to learn it. Null if the file
+  /// didn't exist there.
+  Future<String?> getFileSha(
+    String token,
+    String owner,
+    String repo,
+    String path, {
+    required String ref,
+  }) async {
+    final res = await http.get(
+      Uri.parse('$_baseUrl/repos/$owner/$repo/contents/$path')
+          .replace(queryParameters: {'ref': ref}),
+      headers: {
+        ..._headers(token),
+        'Accept': 'application/vnd.github.object+json',
+      },
+    );
+    if (res.statusCode == 404) return null;
+    _throwIfError(res);
+    return (jsonDecode(res.body) as Map<String, dynamic>)['sha'] as String;
+  }
+
+  /// The newest commit touching [path] — one small request, which is what
+  /// keeps hourly "anything new?" checks cheap. Null when there's none: no
+  /// such file yet, an empty repo (GitHub answers 409 for those), or no
+  /// repo at all.
+  Future<GithubCommit?> getLatestCommit(
+    String token,
+    String owner,
+    String repo,
+    String path,
+  ) async {
+    final res = await http.get(
+      Uri.parse('$_baseUrl/repos/$owner/$repo/commits')
+          .replace(queryParameters: {'path': path, 'per_page': '1'}),
+      headers: _headers(token),
+    );
+    if (res.statusCode == 404 || res.statusCode == 409) return null;
+    _throwIfError(res);
+    final commits = jsonDecode(res.body) as List<dynamic>;
+    if (commits.isEmpty) return null;
+    final latest = commits.first as Map<String, dynamic>;
+    final commit = latest['commit'] as Map<String, dynamic>;
+    final committer = commit['committer'] as Map<String, dynamic>;
+    return GithubCommit(
+      sha: latest['sha'] as String,
+      message: commit['message'] as String,
+      date: DateTime.parse(committer['date'] as String),
+    );
+  }
+
+  /// Creates or updates [path] in [owner]/[repo] and returns the new
+  /// commit's sha. [existingSha] is the blob being replaced (null to
+  /// create): GitHub only writes if the file is still exactly that, and
+  /// otherwise this throws [GithubConflictException].
+  Future<String> putFile(
     String token,
     String owner,
     String repo,
@@ -130,7 +201,19 @@ class GithubApi {
         'sha': ?existingSha,
       }),
     );
-    _throwIfError(res);
+    try {
+      _throwIfError(res);
+    } on GithubApiException catch (e) {
+      // 409: the file isn't at existingSha any more. 422 naming the sha:
+      // it was created meanwhile, so a create without one is refused.
+      final conflict =
+          e.statusCode == 409 ||
+          (e.statusCode == 422 && e.message.contains('sha'));
+      if (conflict) throw GithubConflictException(e.statusCode, e.message);
+      rethrow;
+    }
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    return (json['commit'] as Map<String, dynamic>)['sha'] as String;
   }
 
   void _throwIfError(http.Response res) {
