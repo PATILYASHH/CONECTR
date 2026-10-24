@@ -6,6 +6,7 @@ import 'app.dart';
 import 'core/background/auto_sync.dart';
 import 'core/config/app_config.dart';
 import 'core/providers.dart';
+import 'features/friends/friends_cache.dart';
 import 'features/sync/import_link_handler.dart';
 
 Future<void> main() async {
@@ -33,6 +34,7 @@ Future<void> main() async {
           ..invalidate(githubLoginProvider),
       );
   listenForImportLinks(container);
+  shareFriendsWithXpenc(container);
 
   runApp(
     UncontrolledProviderScope(container: container, child: const ConectrApp()),

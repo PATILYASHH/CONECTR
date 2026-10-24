@@ -48,6 +48,13 @@
                 <data android:scheme="conectr" android:host="imported"/>
             </intent-filter>
         </activity>
+        <!-- The friends list, for XPENC's Persons ("Link Connector friend").
+             Exported so XPENC can reach it; FriendsProvider answers XPENC
+             alone, checked by package name and signing certificate. -->
+        <provider
+            android:name=".FriendsProvider"
+            android:authorities="com.yash.xpenc.conectr.friends"
+            android:exported="true"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
