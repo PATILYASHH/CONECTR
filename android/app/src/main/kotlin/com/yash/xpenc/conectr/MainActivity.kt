@@ -23,12 +23,12 @@ class MainActivity : FlutterActivity() {
                 }
             }
         // The friends list XPENC may read (see friends_cache.dart and
-        // FriendsProvider).
+        // XpencProvider).
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "conectr/friends_cache")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "publish" -> {
-                        FriendsProvider.publish(applicationContext, call.arguments as String)
+                        XpencProvider.publish(applicationContext, call.arguments as String)
                         result.success(null)
                     }
                     else -> result.notImplemented()

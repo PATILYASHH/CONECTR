@@ -384,10 +384,11 @@ class _ImportCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Backup from ${backup.deviceName ?? 'another phone'} '
-              '(${formatWhen(backup.backupModifiedAt)}), saved as '
-              '${AppConfig.backupFileName}. In XPENC: Settings → Backup & '
-              'Restore → Import from file. Then come back and tap '
-              '"I\'ve imported it".',
+              '(${formatWhen(backup.backupModifiedAt)}). Open XPENC and it '
+              'takes it in by itself — or asks first, if this phone has '
+              'changes of its own. With an older XPENC: Settings → Backup & '
+              'Restore → Import from file (${AppConfig.backupFileName}), '
+              'then tap "I\'ve imported it".',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onPrimary.withValues(alpha: 0.8),
               ),

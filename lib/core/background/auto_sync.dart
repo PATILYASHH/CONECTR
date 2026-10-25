@@ -12,6 +12,7 @@ import '../device/device_identity.dart';
 import '../github/github_api.dart';
 import '../notifications/app_notifications.dart';
 import '../storage/secure_store.dart';
+import '../xpenc/xpenc_inbox.dart';
 
 const _taskName = 'connector-auto-sync';
 
@@ -28,6 +29,7 @@ void autoSyncDispatcher() {
         folder: BackupFolderService(),
         store: store,
         device: DeviceIdentity(store),
+        inbox: FileXpencInbox(),
       ),
       store,
     ).run(fromApp: false);
@@ -60,6 +62,8 @@ class AutoSyncRunner {
 
   Future<void> _run({required bool fromApp}) async {
     if (!await _service.isSetUp()) return;
+    // XPENC may have taken the pulled backup in since the last round.
+    await _service.applyXpencImport();
     final settings = await _store.getAutoSyncSettings();
     final state = await _store.getSyncState();
     final now = DateTime.now().toUtc();

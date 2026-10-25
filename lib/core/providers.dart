@@ -11,6 +11,7 @@ import 'github/github_api.dart';
 import 'platform/xpenc_launcher.dart';
 import 'profile/profile_repository.dart';
 import 'storage/secure_store.dart';
+import 'xpenc/xpenc_inbox.dart';
 import 'supabase/auth_service.dart';
 
 final secureStoreProvider = Provider<SecureStore>((ref) => SecureStore());
@@ -94,6 +95,7 @@ final backupSyncServiceProvider = Provider<BackupSyncService>((ref) {
     folder: ref.watch(backupFolderServiceProvider),
     store: ref.watch(secureStoreProvider),
     device: ref.watch(deviceIdentityProvider),
+    inbox: FileXpencInbox(),
   );
 });
 

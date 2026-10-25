@@ -145,9 +145,9 @@ class BackupController extends Notifier<BackupView> {
     return _guard(BackupBusy.pull, () => _service.pull(force: true));
   }
 
-  /// Only opens it — the card stays until the user says the import is done,
-  /// since opening XPENC is exactly when its auto-backup of the old data
-  /// runs.
+  /// Only opens it. XPENC takes the backup in and reports back through
+  /// `XpencProvider`; the card goes once the next sync applies that report
+  /// (or the user taps "I've imported it", for an older XPENC).
   Future<void> openXpenc() => XpencLauncher.open();
 
   /// The "I've imported it" button, for the backup the card showed.

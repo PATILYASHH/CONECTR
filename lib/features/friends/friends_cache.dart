@@ -58,7 +58,7 @@ final friendsCachePayloadProvider = Provider<Map<String, dynamic>?>((ref) {
   );
 });
 
-/// Keeps the copy XPENC reads (Kotlin's `FriendsProvider`, which answers
+/// Keeps the copy XPENC reads (Kotlin's `XpencProvider`, which answers
 /// XPENC only) in step with the account and its friends, for as long as the
 /// app runs. Called once from `main`.
 void shareFriendsWithXpenc(ProviderContainer container) {

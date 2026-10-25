@@ -36,9 +36,9 @@ class AppNotifications {
     return _show(
       _newBackupId,
       'New backup from ${remote.deviceName ?? 'another phone'}',
-      'Saved to your backup folder. Import it in XPENC (Settings → '
-          'Backup & Restore → Import from file), then tap "I\'ve imported '
-          'it" in Connector. Backups from this phone wait until then.',
+      'Open XPENC to take it in — it does by itself, or asks first if '
+          'this phone has changes of its own. Backups from this phone wait '
+          'until then.',
     );
   }
 

@@ -4,6 +4,7 @@ import '../config/app_config.dart';
 import '../device/device_identity.dart';
 import '../github/github_api.dart';
 import '../storage/secure_store.dart';
+import '../xpenc/xpenc_inbox.dart';
 import 'backup_folder_service.dart';
 import 'backup_meta.dart';
 import 'git_blob_sha.dart';
@@ -71,12 +72,17 @@ class BackupSyncService {
     required this._folder,
     required this._store,
     required this._device,
+    this._inbox,
   });
 
   final GithubApi _github;
   final BackupFolderService _folder;
   final SecureStore _store;
   final DeviceIdentity _device;
+
+  /// What XPENC reads to take a pulled backup in by itself. Null in tests
+  /// that don't care.
+  final XpencInbox? _inbox;
 
   static const _repo = AppConfig.backupRepoName;
   static const _path = AppConfig.backupFileName;
@@ -107,6 +113,7 @@ class BackupSyncService {
     bool manual = false,
     bool overwriteNewer = false,
   }) async {
+    await applyXpencImport();
     final ctx = await _context();
     final local = await _folder.findLatestBackupFile(ctx.folderUri);
     if (local == null) return NoLocalBackup();
@@ -164,7 +171,9 @@ class BackupSyncService {
         s.lastCheckAt = DateTime.now().toUtc();
         s.remote = remote;
         s.baseCommitSha = remote!.commitSha;
+        s.baseFileSha = checkedSha;
       });
+      await _publish();
       return UploadNotNeeded();
     }
 
@@ -194,10 +203,12 @@ class BackupSyncService {
         meta: meta,
       );
       s.baseCommitSha = commitSha;
+      s.baseFileSha = gitBlobSha(bytes);
       // Whatever was pulled is no longer GitHub's latest — this is.
       s.clearPendingImport();
       s.clearProblem();
     });
+    await _publish();
     return Uploaded();
   }
 
@@ -206,16 +217,35 @@ class BackupSyncService {
   /// but only with backups XPENC writes from here on: anything already in
   /// the folder was made before the import, from the old data. (XPENC's
   /// auto-backup runs as the app opens, i.e. just before the import.)
-  Future<void> confirmImported(String commitSha) async {
-    final now = DateTime.now().toUtc();
+  ///
+  /// [at]: when the import happened, if it's known to be earlier than now —
+  /// XPENC's own report, read later; backups it wrote since hold new data.
+  Future<void> confirmImported(String commitSha, {DateTime? at}) async {
+    final when = (at ?? DateTime.now()).toUtc();
     await _store.updateSyncState((s) {
       s.baseCommitSha = commitSha;
       final handled = s.lastHandledLocalModified;
-      if (handled == null || now.isAfter(handled)) {
-        s.lastHandledLocalModified = now;
+      if (handled == null || when.isAfter(handled)) {
+        s.lastHandledLocalModified = when;
       }
-      if (s.pendingImport?.commitSha == commitSha) s.clearPendingImport();
+      if (s.pendingImport?.commitSha == commitSha) {
+        s.baseFileSha = s.pendingImportSha;
+        s.clearPendingImport();
+      }
     });
+    await _publish();
+  }
+
+  /// Applies XPENC's own report of taking the pulled backup in (left
+  /// through `XpencProvider`), before anything else this round acts on
+  /// what's pending. Callers hold `SyncLock`.
+  Future<void> applyXpencImport() async {
+    final report = await _inbox?.takeImport();
+    if (report == null) return;
+    final state = await _store.getSyncState();
+    final pending = state.pendingImport;
+    if (pending == null || state.pendingImportSha != report.sha) return;
+    await confirmImported(pending.commitSha, at: report.at);
   }
 
   /// XPENC's "Tell Connector" (`conectr://imported?sha=…`, see
@@ -235,6 +265,7 @@ class BackupSyncService {
   /// if [shouldPull] says it's worth it — or always, with [force] (the
   /// "Pull latest" button). Never imports it: only XPENC can, by hand.
   Future<PullResult> pull({bool force = false}) async {
+    await applyXpencImport();
     final ctx = await _context();
     final remote = await _latestRemote(ctx);
     final now = DateTime.now().toUtc();
@@ -285,10 +316,24 @@ class BackupSyncService {
       s.pendingImportSha = gitBlobSha(file.contentBytes);
       s.clearProblem();
     });
+    await _publish(pendingBytes: file.contentBytes);
     return Pulled(remote);
   }
 
   Future<SyncState> state() => _store.getSyncState();
+
+  /// A failure here mustn't fail the sync: XPENC simply sees the old state
+  /// until the next round.
+  Future<void> _publish({List<int>? pendingBytes}) async {
+    final inbox = _inbox;
+    if (inbox == null) return;
+    try {
+      await inbox.publish(
+        await _store.getSyncState(),
+        pendingBytes: pendingBytes,
+      );
+    } catch (_) {}
+  }
 
   Future<RemoteBackup?> _latestRemote(_SyncContext ctx) async {
     final commit = await _github.getLatestCommit(

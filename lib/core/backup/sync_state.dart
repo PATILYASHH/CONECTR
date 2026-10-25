@@ -41,6 +41,12 @@ class SyncState {
   /// `BackupSyncService.confirmImportedFile`).
   String? pendingImportSha;
 
+  /// The git blob sha of the file [baseCommitSha] holds — the backup this
+  /// phone uploaded, or the pulled one XPENC imported. XPENC matches it
+  /// against its own data to know whether taking in a newer backup could
+  /// lose anything (see `XpencInbox`). Null until the next upload or import.
+  String? baseFileSha;
+
   /// Why auto-sync is stuck, for the dashboard's red card. Null when fine.
   String? problem;
   bool problemNeedsReconnect = false;
@@ -67,6 +73,7 @@ class SyncState {
     'remote': remote?.toJson(),
     'pendingImport': pendingImport?.toJson(),
     'pendingImportSha': pendingImportSha,
+    'baseFileSha': baseFileSha,
     'problem': problem,
     'problemNeedsReconnect': problemNeedsReconnect,
   };
@@ -89,6 +96,7 @@ class SyncState {
       ..remote = backup('remote')
       ..pendingImport = backup('pendingImport')
       ..pendingImportSha = json['pendingImportSha'] as String?
+      ..baseFileSha = json['baseFileSha'] as String?
       ..problem = json['problem'] as String?
       ..problemNeedsReconnect = json['problemNeedsReconnect'] as bool? ?? false;
   }

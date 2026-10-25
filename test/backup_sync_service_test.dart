@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:conectr/core/backup/backup_folder_service.dart';
@@ -9,6 +10,7 @@ import 'package:conectr/core/config/app_config.dart';
 import 'package:conectr/core/device/device_identity.dart';
 import 'package:conectr/core/github/github_api.dart';
 import 'package:conectr/core/storage/secure_store.dart';
+import 'package:conectr/core/xpenc/xpenc_inbox.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:saf_util/saf_util_platform_interface.dart' show SafDocumentFile;
@@ -152,6 +154,100 @@ void main() {
     // The next run sees the Pixel's backup and waits for an import.
     github.beforePut = null;
     expect(await service.upload(manual: true), isA<RemoteNotImported>());
+  });
+
+  group('XPENC takes the pulled backup in by itself', () {
+    late Directory root;
+    late FileXpencInbox inbox;
+
+    String sha(String content) => gitBlobSha(utf8.encode(content));
+    Map<String, dynamic> inboxJson() => jsonDecode(
+      File('${root.path}/xpenc/${FileXpencInbox.inboxFile}').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    File pendingFile() =>
+        File('${root.path}/xpenc/${FileXpencInbox.pendingFile}');
+
+    /// What `XpencProvider.confirmImport` writes.
+    void xpencReports(String fileSha, DateTime at) {
+      final dir = Directory('${root.path}/xpenc')..createSync(recursive: true);
+      File('${dir.path}/${FileXpencInbox.importFile}').writeAsStringSync(
+        jsonEncode({'sha': fileSha, 'at': at.millisecondsSinceEpoch}),
+      );
+    }
+
+    setUp(() {
+      root = Directory.systemTemp.createTempSync('conectr_inbox_');
+      addTearDown(() => root.deleteSync(recursive: true));
+      inbox = FileXpencInbox(() async => root);
+      service = BackupSyncService(
+        github: github,
+        folder: folder,
+        store: store,
+        device: _FakeDevice('me'),
+        inbox: inbox,
+      );
+    });
+
+    test('an upload names the file this phone is built on', () async {
+      folder.xpencBackup(ago(30), 'mine');
+      await service.upload();
+      expect(inboxJson()['baseFileSha'], sha('mine'));
+      expect(inboxJson()['pending'], isNull);
+    });
+
+    test('a pull leaves the backup, and what it is, for XPENC', () async {
+      github.pushFrom('pixel', ago(120), 'pixel data');
+      await service.pull();
+
+      final pending = inboxJson()['pending'] as Map<String, dynamic>;
+      expect(pending['sha'], sha('pixel data'));
+      expect(pending['deviceName'], 'pixel');
+      expect(pendingFile().readAsStringSync(), 'pixel data');
+    });
+
+    test("XPENC's report confirms the import as of when it happened", () async {
+      folder.xpencBackup(ago(90), 'mine');
+      await service.upload();
+      github.pushFrom('pixel', ago(60), 'pixel data');
+      await service.pull();
+
+      // XPENC took it in 20 minutes ago, then wrote a backup with new
+      // entries — which must still go up.
+      xpencReports(sha('pixel data'), ago(20));
+      folder.xpencBackup(ago(10), 'pixel data + new');
+
+      expect(await service.upload(), isA<Uploaded>());
+      expect(github.head, 'pixel data + new');
+      expect((await service.state()).pendingImport, isNull);
+      expect(inboxJson()['baseFileSha'], sha('pixel data + new'));
+      expect(pendingFile().existsSync(), isFalse);
+    });
+
+    test('the confirmed import is the base until the next upload', () async {
+      github.pushFrom('pixel', ago(60), 'pixel data');
+      await service.pull();
+      xpencReports(sha('pixel data'), ago(5));
+
+      await service.applyXpencImport();
+      expect(inboxJson()['baseFileSha'], sha('pixel data'));
+      expect(inboxJson()['pending'], isNull);
+    });
+
+    test('a report for some other file changes nothing', () async {
+      github.pushFrom('pixel', ago(60), 'pixel data');
+      await service.pull();
+      xpencReports(sha('something else'), ago(5));
+
+      await service.applyXpencImport();
+      expect((await service.state()).pendingImport, isNotNull);
+      expect(inboxJson()['pending'], isNotNull);
+    });
+
+    test('the import report is read once', () async {
+      xpencReports('abc', ago(1));
+      expect((await inbox.takeImport())?.sha, 'abc');
+      expect(await inbox.takeImport(), isNull);
+    });
   });
 
   test('one phone on its own just keeps uploading', () async {
