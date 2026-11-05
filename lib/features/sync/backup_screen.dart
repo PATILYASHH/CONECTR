@@ -9,6 +9,7 @@ import '../../core/backup/sync_state.dart';
 import '../../core/config/app_config.dart';
 import '../../core/format/when.dart';
 import '../../core/providers.dart';
+import '../../core/supabase/auth_service.dart';
 import '../../core/widgets/open_xpenc_button.dart';
 import '../../core/widgets/sync_icon_button.dart';
 import '../home/home_tab.dart';
@@ -198,6 +199,21 @@ Future<void> _report(
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
+/// The fresh token lands through `AuthService.listenAndPersistGithubToken`,
+/// which clears the problem; the dashboard hears of it by itself.
+Future<void> _reconnect(BuildContext context, WidgetRef ref) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await ref.read(authServiceProvider).connectGithub();
+  } catch (e) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(AuthService.connectErrorMessage(e))),
+      );
+  }
+}
+
 Future<bool?> _confirmOverwrite(BuildContext context, RemoteBackup remote) {
   final other = remote.deviceName ?? 'another phone';
   return showDialog<bool>(
@@ -247,6 +263,11 @@ class _StatusCard extends ConsumerWidget {
         Icons.cloud_download_outlined,
         'Downloading…',
         'Fetching the latest backup from GitHub.',
+      ),
+      BackupView(busy: BackupBusy.checkingAccess) => (
+        Icons.sync,
+        'Checking GitHub…',
+        'Making sure GitHub still accepts this phone.',
       ),
       BackupView(busy: BackupBusy.sync) => (
         Icons.sync,
@@ -300,7 +321,7 @@ class _StatusCard extends ConsumerWidget {
             if (isProblem && sync.problemNeedsReconnect) ...[
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => ref.read(authServiceProvider).connectGithub(),
+                onPressed: () => _reconnect(context, ref),
                 child: const Text('Reconnect GitHub'),
               ),
             ],

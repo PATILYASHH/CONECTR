@@ -19,12 +19,22 @@ class SyncBusyException implements Exception {}
 ///
 /// Not reentrant: an isolate already holding it waits on itself.
 class SyncLock {
-  SyncLock._(this._port);
+  SyncLock._(this._port, this._name);
 
+  /// The backup sync's lock — the default.
   @visibleForTesting
   static const name = 'connector-sync-lock';
 
+  /// Friends' shared entries sync on their own, beside backups.
+  static const sharedName = 'connector-shared-lock';
+
+  /// Held only while the background job refreshes the Supabase session —
+  /// the app waits for it before reading that session (see
+  /// `SessionTokens`).
+  static const sessionName = 'connector-session-lock';
+
   final ReceivePort _port;
+  final String _name;
 
   /// Runs [action] holding the lock, waiting up to [wait] for it. Throws
   /// [SyncBusyException], without running [action], if it stayed taken.
@@ -34,27 +44,28 @@ class SyncLock {
     Future<T> Function() action, {
     Duration wait = Duration.zero,
     Duration pingTimeout = const Duration(seconds: 2),
+    String lock = name,
   }) async {
     final deadline = DateTime.now().add(wait);
-    SyncLock? lock;
-    while ((lock = await _tryAcquire(pingTimeout)) == null) {
+    SyncLock? held;
+    while ((held = await _tryAcquire(lock, pingTimeout)) == null) {
       if (!DateTime.now().isBefore(deadline)) throw SyncBusyException();
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
     try {
       return await action();
     } finally {
-      lock!._release();
+      held!._release();
     }
   }
 
-  static Future<SyncLock?> _tryAcquire(Duration pingTimeout) async {
+  static Future<SyncLock?> _tryAcquire(String name, Duration pingTimeout) async {
     final port = ReceivePort();
     port.listen((message) {
       if (message is SendPort) message.send(true);
     });
     if (IsolateNameServer.registerPortWithName(port.sendPort, name)) {
-      return SyncLock._(port);
+      return SyncLock._(port, name);
     }
     final holder = IsolateNameServer.lookupPortByName(name);
     if (holder != null && await _answers(holder, pingTimeout)) {
@@ -66,7 +77,7 @@ class SyncLock {
       IsolateNameServer.removePortNameMapping(name);
     }
     if (IsolateNameServer.registerPortWithName(port.sendPort, name)) {
-      return SyncLock._(port);
+      return SyncLock._(port, name);
     }
     port.close();
     return null;
@@ -86,8 +97,8 @@ class SyncLock {
   }
 
   void _release() {
-    if (IsolateNameServer.lookupPortByName(name) == _port.sendPort) {
-      IsolateNameServer.removePortNameMapping(name);
+    if (IsolateNameServer.lookupPortByName(_name) == _port.sendPort) {
+      IsolateNameServer.removePortNameMapping(_name);
     }
     _port.close();
   }

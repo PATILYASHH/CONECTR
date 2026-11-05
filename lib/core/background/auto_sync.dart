@@ -8,20 +8,33 @@ import '../backup/backup_sync_service.dart';
 import '../backup/sync_failure.dart';
 import '../backup/sync_lock.dart';
 import '../backup/sync_rules.dart';
+import '../backup/sync_state.dart';
 import '../device/device_identity.dart';
 import '../github/github_api.dart';
 import '../notifications/app_notifications.dart';
+import '../shared/shared_sync.dart';
 import '../storage/secure_store.dart';
 import '../xpenc/xpenc_inbox.dart';
 
 const _taskName = 'connector-auto-sync';
 
+/// Friends' shared entries: every 15 minutes while there are friends, and
+/// once right away whenever XPENC queues something (`XpencProvider.kt`
+/// enqueues this name — keep them the same).
+const sharedSyncTask = 'connector-shared-sync';
+const _sharedPeriodicTask = 'connector-shared-periodic';
+
 /// Entry point of the background isolate WorkManager starts. No Riverpod,
-/// no Supabase — just the store, GitHub and the folder.
+/// no Supabase client — just the store, GitHub, the folder, and Supabase's
+/// REST API with a token from `SessionTokens`.
 @pragma('vm:entry-point')
 void autoSyncDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     DartPluginRegistrant.ensureInitialized();
+    if (task == sharedSyncTask || task == _sharedPeriodicTask) {
+      await SharedSync(announce: AppNotifications.sharedEntry).run();
+      return true;
+    }
     final store = SecureStore();
     await AutoSyncRunner(
       BackupSyncService(
@@ -61,11 +74,18 @@ class AutoSyncRunner {
   }
 
   Future<void> _run({required bool fromApp}) async {
-    if (!await _service.isSetUp()) return;
-    // XPENC may have taken the pulled backup in since the last round.
-    await _service.applyXpencImport();
-    final settings = await _store.getAutoSyncSettings();
-    final state = await _store.getSyncState();
+    final SyncState state;
+    final AutoSyncSettings settings;
+    try {
+      if (!await _service.isSetUp()) return;
+      // XPENC may have taken the pulled backup in since the last round.
+      await _service.applyXpencImport();
+      settings = await _store.getAutoSyncSettings();
+      state = await _store.getSyncState();
+    } on SecureStoreException {
+      // The keystore, for a moment. Nothing to report; next run retries.
+      return;
+    }
     final now = DateTime.now().toUtc();
 
     try {
@@ -128,4 +148,24 @@ class AutoSyncScheduler {
   }
 
   static Future<void> cancel() => Workmanager().cancelByUniqueName(_taskName);
+}
+
+/// Keeps the shared-entries job in step with the account: on while signed
+/// in with at least one friend, off otherwise.
+class SharedSyncScheduler {
+  static Future<void> apply({required bool active}) async {
+    if (!active) return cancel();
+    await Workmanager().registerPeriodicTask(
+      _sharedPeriodicTask,
+      _sharedPeriodicTask,
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(networkType: NetworkType.connected),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+    );
+  }
+
+  static Future<void> cancel() async {
+    await Workmanager().cancelByUniqueName(_sharedPeriodicTask);
+    await Workmanager().cancelByUniqueName(sharedSyncTask);
+  }
 }

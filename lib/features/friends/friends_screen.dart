@@ -12,6 +12,7 @@ import '../../core/widgets/user_avatar.dart';
 import 'find_friend_screen.dart';
 import 'friends_controller.dart';
 import 'run_friends_action.dart';
+import 'shared_sync_runner.dart';
 
 /// The Friends tab: requests waiting on you, your friends, and requests
 /// you've sent. Live — another phone's accept or request shows up here
@@ -311,10 +312,15 @@ class _FriendTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final displayName = link.other.displayName;
+    final balance = balanceLabel(
+      ref.watch(sharedBalancesProvider).value?[link.other.id],
+    );
     return ListTile(
       leading: UserAvatar(username: link.other.username),
       title: Text('@${link.other.username}'),
-      subtitle: Text(displayName ?? 'Friends since ${_date(link.since)}'),
+      subtitle: Text(
+        balance ?? displayName ?? 'Friends since ${_date(link.since)}',
+      ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () => _showFriend(context, ref, link),
     );

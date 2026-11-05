@@ -53,6 +53,10 @@ dependencies:
   # Where XpencInbox leaves the pulled backup for XPENC (filesDir); already
   # in the lock through supabase_flutter.
   path_provider: ^2.1.6
+  # Where supabase_flutter keeps the session; the background job reads and
+  # refreshes it there (lib/core/shared/session_tokens.dart). Already in the
+  # lock through supabase_flutter.
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

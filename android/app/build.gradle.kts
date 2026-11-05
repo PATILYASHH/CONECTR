@@ -53,4 +53,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // XpencProvider starts the shared-entries sync through the workmanager
+    // plugin's worker; the plugin keeps WorkManager to itself, so it's named
+    // here too, at the plugin's own version.
+    implementation("androidx.work:work-runtime:2.11.2")
 }

@@ -8,6 +8,7 @@ import '../../core/backup/sync_rules.dart';
 import '../../core/config/app_config.dart';
 import '../../core/notifications/app_notifications.dart';
 import '../../core/providers.dart';
+import '../../core/supabase/auth_service.dart';
 import '../../core/widgets/open_xpenc_button.dart';
 import '../../core/widgets/section.dart';
 import '../../core/widgets/user_avatar.dart';
@@ -278,7 +279,9 @@ Future<void> _connectGithub(BuildContext context, WidgetRef ref) async {
     await ref.read(authServiceProvider).connectGithub();
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AuthService.connectErrorMessage(e))),
+    );
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../github/github_api.dart';
+import '../storage/secure_store.dart';
 import 'backup_sync_service.dart';
 import 'sync_lock.dart';
 
@@ -27,6 +28,17 @@ class SyncFailure {
       ),
       SyncBusyException() => const SyncFailure(
         'Another sync is still running. Try again in a moment.',
+        transient: true,
+      ),
+      // The token checked out fine straight after; not worth a red card.
+      GithubAuthGlitchException() => const SyncFailure(
+        'GitHub refused a request. Sync again in a moment.',
+        transient: true,
+      ),
+      // Nothing was lost — the keystore was only briefly unavailable.
+      SecureStoreException() => const SyncFailure(
+        "Couldn't read this phone's saved sign-in just now. Sync again in a "
+        'moment.',
         transient: true,
       ),
       GithubApiException(statusCode: 401) => const SyncFailure(

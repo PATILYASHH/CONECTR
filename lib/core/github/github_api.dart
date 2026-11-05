@@ -19,6 +19,11 @@ class GithubConflictException extends GithubApiException {
   GithubConflictException(super.statusCode, super.message);
 }
 
+/// GitHub refused a request (401) but, asked straight after, says the
+/// token itself is fine — so there's nothing to reconnect. Retried on the
+/// next run.
+class GithubAuthGlitchException implements Exception {}
+
 class GithubFile {
   GithubFile({required this.sha, required this.contentBytes});
 
@@ -54,6 +59,19 @@ class GithubApi {
     );
     _throwIfError(res);
     return (jsonDecode(res.body) as Map<String, dynamic>)['login'] as String;
+  }
+
+  /// Whether GitHub still accepts [token] at all — the one question that
+  /// decides "Reconnect GitHub". Throws on anything but a clear yes or no
+  /// (offline, GitHub down), which answers neither.
+  Future<bool> tokenWorks(String token) async {
+    final res = await http.get(
+      Uri.parse('$_baseUrl/user'),
+      headers: _headers(token),
+    );
+    if (res.statusCode == 401) return false;
+    _throwIfError(res);
+    return true;
   }
 
   Future<bool> repoExists(String token, String owner, String repo) async {

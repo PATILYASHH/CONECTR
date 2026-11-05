@@ -112,6 +112,13 @@ class BackupSyncService {
   Future<UploadResult> upload({
     bool manual = false,
     bool overwriteNewer = false,
+  }) => _confirmingAuth(
+    () => _upload(manual: manual, overwriteNewer: overwriteNewer),
+  );
+
+  Future<UploadResult> _upload({
+    required bool manual,
+    required bool overwriteNewer,
   }) async {
     await applyXpencImport();
     final ctx = await _context();
@@ -264,7 +271,10 @@ class BackupSyncService {
   /// Saves GitHub's backup into the folder as [AppConfig.backupFileName]
   /// if [shouldPull] says it's worth it — or always, with [force] (the
   /// "Pull latest" button). Never imports it: only XPENC can, by hand.
-  Future<PullResult> pull({bool force = false}) async {
+  Future<PullResult> pull({bool force = false}) =>
+      _confirmingAuth(() => _pull(force: force));
+
+  Future<PullResult> _pull({required bool force}) async {
     await applyXpencImport();
     final ctx = await _context();
     final remote = await _latestRemote(ctx);
@@ -321,6 +331,44 @@ class BackupSyncService {
   }
 
   Future<SyncState> state() => _store.getSyncState();
+
+  /// GitHub answered 401. Before that becomes "Reconnect GitHub" — a red
+  /// card, a notification, auto-sync paused — make sure it's true:
+  ///
+  /// * the token may have been replaced since this run read it (connected
+  ///   again in the app while the background job ran): try once more with
+  ///   the new one;
+  /// * GitHub may refuse one request yet, asked straight after, accept the
+  ///   token (`GET /user`): nothing to reconnect, try again next run.
+  ///
+  /// Only a token GitHub itself calls bad gets through as the 401.
+  Future<T> _confirmingAuth<T>(Future<T> Function() attempt) async {
+    final used = await _store.getGithubToken();
+    try {
+      return await attempt();
+    } on GithubApiException catch (e) {
+      if (e.statusCode != 401 || used == null) rethrow;
+      final current = await _store.getGithubToken();
+      if (current != null && current != used) return attempt();
+      if (await _github.tokenWorks(used)) throw GithubAuthGlitchException();
+      rethrow;
+    }
+  }
+
+  /// A "Reconnect GitHub" problem recorded earlier — usually by the
+  /// background job — asked about again, in one request and without
+  /// waiting for a sync slot: that wait (up to half a minute, behind a
+  /// background run) is what kept a problem that was already gone on
+  /// screen. Clears it if GitHub accepts the token after all. Throws if
+  /// GitHub can't be reached.
+  Future<void> recheckAccess() async {
+    if (!(await _store.getSyncState()).problemNeedsReconnect) return;
+    final token = await _store.getGithubToken();
+    if (token == null || !await _github.tokenWorks(token)) return;
+    await _store.updateSyncState((s) {
+      if (s.problemNeedsReconnect) s.clearProblem();
+    });
+  }
 
   /// A failure here mustn't fail the sync: XPENC simply sees the old state
   /// until the next round.

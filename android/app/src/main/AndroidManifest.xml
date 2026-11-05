@@ -9,10 +9,16 @@
         android:label="Connector"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- singleTask, not singleTop: GitHub's sign-in opens in a Custom
+             Tab on top of this activity, and XPENC's links come from its own
+             task. With singleTop, either redirect started a second copy of
+             Connector — a second engine and Supabase client fighting over
+             one session. singleTask hands the link to the one copy there is
+             and closes the tab above it. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"

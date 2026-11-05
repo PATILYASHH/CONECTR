@@ -260,6 +260,57 @@ void main() {
     expect(await service.upload(), isA<Uploaded>());
     expect(github.head, 'tuesday');
   });
+
+  group('a 401 only means "Reconnect GitHub" once GitHub confirms it', () {
+    test('a one-off refusal of a good token is a glitch, not a revoke',
+        () async {
+      github.pushFrom('pixel', ago(120), 'pixel data');
+      github.refuseNext = 1;
+      await expectLater(
+        service.pull(),
+        throwsA(isA<GithubAuthGlitchException>()),
+      );
+      // Next run, all fine.
+      expect(await service.pull(), isA<Pulled>());
+    });
+
+    test('a token replaced mid-run is retried with the new one', () async {
+      github.pushFrom('pixel', ago(120), 'pixel data');
+      github.revoked.add('token');
+      // Connected again in the app while this run was in flight.
+      github.beforeRefusal = () => store.setGithubToken('fresh');
+      expect(await service.pull(), isA<Pulled>());
+    });
+
+    test('a revoked token still says so', () async {
+      github.pushFrom('pixel', ago(120), 'pixel data');
+      github.revoked.add('token');
+      await expectLater(
+        service.pull(),
+        throwsA(
+          isA<GithubApiException>().having((e) => e.statusCode, 'status', 401),
+        ),
+      );
+    });
+
+    test('opening the app clears a "reconnect" that no longer holds',
+        () async {
+      await store.updateSyncState((s) {
+        s.problem = 'GitHub access was revoked or has expired.';
+        s.problemNeedsReconnect = true;
+      });
+      await service.recheckAccess();
+      expect((await service.state()).problem, isNull);
+
+      github.revoked.add('token');
+      await store.updateSyncState((s) {
+        s.problem = 'GitHub access was revoked or has expired.';
+        s.problemNeedsReconnect = true;
+      });
+      await service.recheckAccess();
+      expect((await service.state()).problemNeedsReconnect, isTrue);
+    });
+  });
 }
 
 class _Commit {
@@ -299,6 +350,30 @@ class _FakeGithub implements GithubApi {
       ? (commits.isEmpty ? null : commits.last)
       : commits.where((c) => c.sha == ref).firstOrNull;
 
+  /// Tokens GitHub refuses outright, and requests it refuses once (401)
+  /// although the token is fine.
+  final revoked = <String>{};
+  int refuseNext = 0;
+
+  /// Runs as a refusal is about to happen — to swap the token meanwhile.
+  Future<void> Function()? beforeRefusal;
+
+  Future<void> _authCheck(String token) async {
+    if (revoked.contains(token)) {
+      final hook = beforeRefusal;
+      beforeRefusal = null;
+      await hook?.call();
+      throw GithubApiException(401, 'Bad credentials');
+    }
+    if (refuseNext > 0) {
+      refuseNext--;
+      throw GithubApiException(401, 'Bad credentials');
+    }
+  }
+
+  @override
+  Future<bool> tokenWorks(String token) async => !revoked.contains(token);
+
   @override
   Future<String> getAuthenticatedLogin(String token) async => 'yash';
 
@@ -320,6 +395,7 @@ class _FakeGithub implements GithubApi {
     String repo,
     String path,
   ) async {
+    await _authCheck(token);
     final c = _at(null);
     return c == null
         ? null

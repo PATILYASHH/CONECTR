@@ -3,34 +3,23 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/friends/friends_payload.dart';
 import '../../core/friends/friendship.dart';
 import '../../core/providers.dart';
 import 'friends_controller.dart';
 
-/// What XPENC gets to see, so its Persons can be linked to friends: whether
-/// someone is signed in, their username, and their accepted friends — no
-/// requests, no ids beyond the friends' own. Version 1 of the shape XPENC
-/// reads (`Money-Management/lib/core/connector/friends/
-/// connector_friends_source.dart`).
+/// [friendsPayload] for the Friends tab's links.
 Map<String, dynamic> friendsCachePayload({
   required bool signedIn,
   String? username,
   List<FriendLink> friends = const [],
   required DateTime now,
-}) => {
-  'version': 1,
-  'signedIn': signedIn,
-  'username': username,
-  'updatedAt': now.millisecondsSinceEpoch,
-  'friends': [
-    for (final link in friends)
-      {
-        'id': link.other.id,
-        'username': link.other.username,
-        'display_name': link.other.displayName,
-      },
-  ],
-};
+}) => friendsPayload(
+  signedIn: signedIn,
+  username: username,
+  friends: [for (final link in friends) link.other],
+  now: now,
+);
 
 /// The payload for the current account, or null while it's still loading —
 /// publishing then would tell XPENC "signed out" for a moment on every

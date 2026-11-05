@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/background/auto_sync.dart';
@@ -6,11 +8,18 @@ import '../../core/backup/backup_sync_service.dart';
 import '../../core/backup/sync_lock.dart';
 import '../../core/backup/sync_rules.dart';
 import '../../core/backup/sync_state.dart';
+import '../../core/backup/sync_state_signal.dart';
 import '../../core/notifications/app_notifications.dart';
 import '../../core/platform/xpenc_launcher.dart';
 import '../../core/providers.dart';
 
-enum BackupBusy { sync, upload, pull }
+enum BackupBusy {
+  /// Re-asking GitHub whether a recorded "Reconnect GitHub" still holds.
+  checkingAccess,
+  sync,
+  upload,
+  pull,
+}
 
 /// Everything the Backup tab shows. Rebuilt whole on every refresh.
 class BackupView {
@@ -71,6 +80,19 @@ class BackupController extends Notifier<BackupView> {
   BackupView build() {
     // Start over for a different account (sign-out included).
     ref.watch(currentUserIdProvider);
+    // Whatever the background job changes shows here as it happens, not
+    // at the next tap.
+    Timer? debounce;
+    final changes = SyncStateSignal.changes.listen((_) {
+      debounce?.cancel();
+      debounce = Timer(const Duration(milliseconds: 300), () {
+        if (ref.mounted) refresh().ignore();
+      });
+    });
+    ref.onDispose(() {
+      debounce?.cancel();
+      changes.cancel();
+    });
     Future.microtask(_onFirstOpen);
     return BackupView(sync: SyncState());
   }
@@ -86,8 +108,21 @@ class BackupController extends Notifier<BackupView> {
   /// Opening or returning to the app is itself a trigger: whatever the
   /// auto-sync settings say is due runs now, not at the next background
   /// slot.
+  ///
+  /// A "Reconnect GitHub" problem is asked about first, on its own — one
+  /// request, no waiting behind a background run for the sync lock — so a
+  /// problem that's already gone doesn't sit on screen for the length of a
+  /// sync. Until that answer, the card says it's checking.
   Future<void> checkOnOpen() async {
     if (state.busy != null) return;
+    state = state.withBusy(BackupBusy.checkingAccess);
+    try {
+      await _service.recheckAccess();
+    } catch (_) {
+      // Offline or GitHub down: the sync below says so, or retries.
+    }
+    if (!ref.mounted) return;
+    state = state.withBusy(null);
     // The runner takes the lock itself.
     await _guard(BackupBusy.sync, lock: false, () {
       return AutoSyncRunner(

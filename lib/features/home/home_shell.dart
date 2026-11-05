@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../friends/friends_controller.dart';
 import '../friends/friends_screen.dart';
+import '../friends/shared_sync_runner.dart';
 import '../settings/settings_screen.dart';
 import '../sync/backup_controller.dart';
 import '../sync/backup_gate.dart';
@@ -39,6 +40,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
     ref.invalidate(xpencInstalledProvider);
     // Realtime can miss events while the app sat in the background.
     ref.read(friendsControllerProvider.notifier).refresh().ignore();
+    ref.read(sharedSyncRunnerProvider)?.kick();
     // Coming back to the app counts as opening it (see checkOnOpen) — but
     // only once the Backup dashboard exists, i.e. backup is set up.
     if (ref.exists(backupControllerProvider)) {
@@ -49,6 +51,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
   @override
   Widget build(BuildContext context) {
     ref.watch(autoSyncScheduleProvider);
+    ref.watch(sharedSyncRunnerProvider);
     final tab = ref.watch(homeTabProvider);
     final requests = ref.watch(
       friendsControllerProvider.select((f) => f.value?.incoming.length ?? 0),
