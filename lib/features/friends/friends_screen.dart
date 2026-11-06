@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/widgets/section.dart';
 import '../../core/widgets/user_avatar.dart';
 import 'find_friend_screen.dart';
+import 'friend_shared_section.dart';
 import 'friends_controller.dart';
 import 'run_friends_action.dart';
 import 'shared_sync_runner.dart';
@@ -335,13 +336,17 @@ Future<void> _showFriend(
   FriendLink link,
 ) async {
   final name = link.other.username;
+  // Show what was last read straight away, and catch up underneath.
+  ref.read(sharedSyncRunnerProvider)?.kick();
   final remove = await showModalBottomSheet<bool>(
     context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) {
       final theme = Theme.of(context);
       final muted = theme.colorScheme.onSurfaceVariant;
       return SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -361,25 +366,7 @@ Future<void> _showFriend(
                 style: theme.textTheme.bodyMedium?.copyWith(color: muted),
               ),
               const SizedBox(height: 20),
-              Card(
-                color: theme.colorScheme.surfaceContainerHighest,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.handshake_outlined),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Shared owes & dues with @$name come in the next '
-                          'update.',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              FriendSharedSection(friendId: link.other.id, username: name),
               const SizedBox(height: 12),
               TextButton.icon(
                 style: TextButton.styleFrom(

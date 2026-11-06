@@ -11,26 +11,111 @@ import '../../core/shared/shared_files.dart';
 import '../../core/shared/shared_sync.dart';
 import 'friends_controller.dart';
 
-/// Net of the accepted entries with each friend, per currency, from this
-/// account's side: `+` they owe you, `-` you owe them. Read-only here —
-/// entries are made and answered in XPENC.
+/// One entry with a friend, from this account's side, as the last sync
+/// left it in `shared.json`. Read-only here — entries are made and answered
+/// in XPENC.
+class FriendEntry {
+  const FriendEntry({
+    required this.byMe,
+    required this.theyOwe,
+    required this.amountMinor,
+    required this.currency,
+    required this.date,
+    this.note,
+    this.isOpening = false,
+    required this.status,
+    required this.updatedAt,
+  });
+
+  final bool byMe;
+  final bool theyOwe;
+  final int amountMinor;
+  final String currency;
+
+  /// `yyyy-mm-dd`.
+  final String date;
+  final String? note;
+  final bool isOpening;
+
+  /// `pending`, `accepted` or `rejected`.
+  final String status;
+  final String updatedAt;
+
+  bool get toAnswer => !byMe && status == 'pending';
+  bool get waitingOnThem => byMe && status == 'pending';
+}
+
+/// The entries in a `shared.json` snapshot, per friend, newest first.
+/// Empty when it's signed out or was written for another account.
+Map<String, List<FriendEntry>> entriesByFriend(
+  Map<String, dynamic>? snapshot,
+  String? myId,
+) {
+  final entries = snapshot?['entries'];
+  if (myId == null ||
+      snapshot?['signedIn'] != true ||
+      snapshot?['me'] != myId ||
+      entries is! List) {
+    return const {};
+  }
+  final byFriend = <String, List<FriendEntry>>{};
+  for (final e in entries.whereType<Map<String, dynamic>>()) {
+    try {
+      byFriend
+          .putIfAbsent(e['friendId'] as String, () => [])
+          .add(
+            FriendEntry(
+              byMe: e['byMe'] == true,
+              theyOwe: e['theyOwe'] == true,
+              amountMinor: (e['amountMinor'] as num).toInt(),
+              currency: e['currency'] as String,
+              date: e['date'] as String,
+              note: e['note'] as String?,
+              isOpening: e['isOpening'] == true,
+              status: e['status'] as String,
+              updatedAt: e['updatedAt'] as String? ?? '',
+            ),
+          );
+    } on TypeError {
+      // A row this version can't read; the rest still shows.
+    }
+  }
+  for (final list in byFriend.values) {
+    list.sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      return byDate != 0 ? byDate : b.updatedAt.compareTo(a.updatedAt);
+    });
+  }
+  return byFriend;
+}
+
+/// Net of the accepted entries, per currency: `+` they owe you, `-` you
+/// owe them.
+Map<String, int> netOf(Iterable<FriendEntry> entries) {
+  final net = <String, int>{};
+  for (final e in entries) {
+    if (e.status != 'accepted') continue;
+    net[e.currency] =
+        (net[e.currency] ?? 0) + (e.theyOwe ? e.amountMinor : -e.amountMinor);
+  }
+  return net;
+}
+
+final sharedEntriesProvider = FutureProvider<Map<String, List<FriendEntry>>>((
+  ref,
+) async {
+  final myId = ref.watch(currentUserIdProvider);
+  return entriesByFriend(await SharedFiles().readSnapshot(), myId);
+});
+
+/// [netOf] each friend's entries, by friend id.
 final sharedBalancesProvider = FutureProvider<Map<String, Map<String, int>>>((
   ref,
 ) async {
-  ref.watch(currentUserIdProvider);
-  final snapshot = await SharedFiles().readSnapshot();
-  final entries = snapshot?['entries'];
-  if (snapshot?['signedIn'] != true || entries is! List) return const {};
-  final net = <String, Map<String, int>>{};
-  for (final e in entries.cast<Map<String, dynamic>>()) {
-    if (e['status'] != 'accepted') continue;
-    final amount = (e['amountMinor'] as num).toInt();
-    final byCurrency = net.putIfAbsent(e['friendId'] as String, () => {});
-    final currency = e['currency'] as String;
-    byCurrency[currency] =
-        (byCurrency[currency] ?? 0) + (e['theyOwe'] == true ? amount : -amount);
-  }
-  return net;
+  final byFriend = await ref.watch(sharedEntriesProvider.future);
+  return {
+    for (final MapEntry(:key, :value) in byFriend.entries) key: netOf(value),
+  };
 });
 
 /// "Owes you ₹500", "You owe $12.50", or null when they're square.
@@ -39,12 +124,12 @@ String? balanceLabel(Map<String, int>? byCurrency) {
     for (final MapEntry(key: currency, value: minor)
         in (byCurrency ?? const <String, int>{}).entries)
       if (minor != 0)
-        '${minor > 0 ? 'Owes you' : 'You owe'} ${_money(minor.abs(), currency)}',
+        '${minor > 0 ? 'Owes you' : 'You owe'} ${moneyLabel(minor.abs(), currency)}',
   ];
   return parts.isEmpty ? null : parts.join(' · ');
 }
 
-String _money(int minor, String currency) {
+String moneyLabel(int minor, String currency) {
   try {
     return NumberFormat.simpleCurrency(name: currency).format(minor / 100);
   } catch (_) {
@@ -87,12 +172,11 @@ class SharedSyncRunner {
     if (_disposed) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 600), () async {
-      final outcome = await SharedSync(
-        announce: AppNotifications.sharedEntry,
-      ).run(wait: const Duration(seconds: 20));
+      final outcome = await SharedSync(announce: AppNotifications.sharedEntry)
+          .run(wait: const Duration(seconds: 20));
       if (_disposed) return;
       if (outcome == SharedSyncOutcome.synced) {
-        _ref.invalidate(sharedBalancesProvider);
+        _ref.invalidate(sharedEntriesProvider);
       }
     });
   }
