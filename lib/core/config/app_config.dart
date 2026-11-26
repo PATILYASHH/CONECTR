@@ -6,11 +6,11 @@
 ///   flutter run --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
 ///               --dart-define=SUPABASE_ANON_KEY=eyJ...
 ///
-/// See README.md "Configuration" for how to obtain these values. The
+/// See README.md "Build from source" for how to obtain these values. The
 /// Supabase anon key is safe to ship in a client (it's public by design,
 /// gated by Row Level Security) — the GitHub OAuth Client Secret is not
 /// used here at all, because it lives server-side in the Supabase Auth
-/// provider config instead. See PLAN.md for why.
+/// provider config instead. See docs/ARCHITECTURE.md "Auth".
 class AppConfig {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');

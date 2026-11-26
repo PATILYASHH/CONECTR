@@ -1,7 +1,7 @@
 # Friends & shared dues — design
 
 Status: approved 2026-10-24. Spans two repos: Connector (this one) and
-XPENC (`../Money-Management`).
+XPENC ([XPENC](https://github.com/PATILYASHH/XPENC)).
 
 ## Goal
 

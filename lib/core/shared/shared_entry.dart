@@ -61,7 +61,7 @@ class SharedEntry {
   /// The shape XPENC reads, seen from [myId]'s side: who the friend is,
   /// whether they owe, and whether this phone's account made it. XPENC
   /// never sees anyone else's ids. Version 1 of
-  /// `Money-Management/lib/core/connector/shared/shared_snapshot.dart`.
+  /// `XPENC/lib/core/connector/shared/shared_snapshot.dart`.
   Map<String, dynamic> toWire(String myId) {
     final byMe = createdBy == myId;
     return {

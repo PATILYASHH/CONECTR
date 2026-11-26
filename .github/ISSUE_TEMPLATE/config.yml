@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/PATILYASHH/CONECTR/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: Problem with XPENC itself
+    url: https://github.com/PATILYASHH/XPENC/issues
+    about: Issues in the offline XPENC app belong in its own repository.

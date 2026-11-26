@@ -88,7 +88,7 @@ class FileXpencInbox implements XpencInbox {
     await temp.rename(file.path);
   }
 
-  /// The shape XPENC reads (`Money-Management/lib/core/connector/inbox/`).
+  /// The shape XPENC reads (`XPENC/lib/core/connector/inbox/`).
   static Map<String, dynamic> inboxJson(SyncState state) {
     final pending = state.pendingImport;
     return {

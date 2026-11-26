@@ -52,3 +52,5 @@ app.*.map.json
 # that key never belongs in a client app at all.
 dart_define.local.json
 TEMP 
+# Release signing — never commit a keystore or its passwords.
+android/key.properties
