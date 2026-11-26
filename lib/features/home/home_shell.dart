@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../connections/connections_screen.dart';
+import '../dashboard/dashboard_screen.dart';
 import '../friends/friends_controller.dart';
 import '../friends/friends_screen.dart';
 import '../friends/shared_sync_runner.dart';
 import '../settings/settings_screen.dart';
 import '../sync/backup_controller.dart';
-import '../sync/backup_gate.dart';
 import 'home_tab.dart';
 
 /// The signed-in app: one tab per feature. Tabs stay alive in an
@@ -42,7 +43,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
     ref.read(friendsControllerProvider.notifier).refresh().ignore();
     ref.read(sharedSyncRunnerProvider)?.kick();
     // Coming back to the app counts as opening it (see checkOnOpen) — but
-    // only once the Backup dashboard exists, i.e. backup is set up.
+    // only once backup is set up (the Dashboard then keeps it alive).
     if (ref.exists(backupControllerProvider)) {
       ref.read(backupControllerProvider.notifier).checkOnOpen();
     }
@@ -60,13 +61,23 @@ class _HomeShellState extends ConsumerState<HomeShell>
     return Scaffold(
       body: IndexedStack(
         index: tab.index,
-        children: const [FriendsScreen(), BackupGate(), SettingsScreen()],
+        children: const [
+          DashboardScreen(),
+          FriendsScreen(),
+          ConnectionsScreen(),
+          SettingsScreen(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tab.index,
         onDestinationSelected: (i) =>
             ref.read(homeTabProvider.notifier).select(HomeTab.values[i]),
         destinations: [
+          const NavigationDestination(
+            icon: Icon(Icons.space_dashboard_outlined),
+            selectedIcon: Icon(Icons.space_dashboard),
+            label: 'Dashboard',
+          ),
           NavigationDestination(
             icon: Badge(
               isLabelVisible: requests > 0,
@@ -81,9 +92,9 @@ class _HomeShellState extends ConsumerState<HomeShell>
             label: 'Friends',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.cloud_outlined),
-            selectedIcon: Icon(Icons.cloud),
-            label: 'Backup',
+            icon: Icon(Icons.hub_outlined),
+            selectedIcon: Icon(Icons.hub),
+            label: 'Connections',
           ),
           const NavigationDestination(
             icon: Icon(Icons.settings_outlined),

@@ -16,7 +16,8 @@ import '../home/home_tab.dart';
 import '../settings/auto_sync_labels.dart';
 import 'backup_controller.dart';
 
-/// The Backup tab once GitHub and the folder are set up (see `BackupGate`).
+/// XPENC's connection page once GitHub and the folder are set up (see
+/// `BackupGate`), opened from the Connections and Dashboard tabs.
 class BackupScreen extends ConsumerWidget {
   const BackupScreen({super.key});
 
@@ -35,12 +36,14 @@ class BackupScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar.large(
-              leading: SyncIconButton(
-                spinning: busy,
-                onPressed: () => _syncNow(context, ref),
-              ),
-              title: const Text('Backup'),
-              actions: const [OpenXpencButton()],
+              title: const Text('XPENC'),
+              actions: [
+                SyncIconButton(
+                  spinning: busy,
+                  onPressed: () => _syncNow(context, ref),
+                ),
+                const OpenXpencButton(),
+              ],
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
@@ -87,9 +90,12 @@ class BackupScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   _AutoSyncCard(
                     settings: settings,
-                    onTap: () => ref
-                        .read(homeTabProvider.notifier)
-                        .select(HomeTab.settings),
+                    onTap: () {
+                      Navigator.of(context).popUntil((r) => r.isFirst);
+                      ref
+                          .read(homeTabProvider.notifier)
+                          .select(HomeTab.settings);
+                    },
                   ),
                   const SizedBox(height: 24),
                   Row(

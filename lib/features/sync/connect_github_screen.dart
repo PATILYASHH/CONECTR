@@ -82,7 +82,7 @@ class _ConnectGithubScreenState extends ConsumerState<ConnectGithubScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Backup')),
+      appBar: AppBar(title: const Text('Connect XPENC')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

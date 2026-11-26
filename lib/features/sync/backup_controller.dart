@@ -21,7 +21,7 @@ enum BackupBusy {
   pull,
 }
 
-/// Everything the Backup tab shows. Rebuilt whole on every refresh.
+/// Everything XPENC's connection page shows. Rebuilt whole on every refresh.
 class BackupView {
   const BackupView({
     required this.sync,
@@ -70,7 +70,7 @@ class BackupView {
   );
 }
 
-/// The Backup tab's state and actions. Errors from actions propagate to
+/// XPENC's connection page's state and actions. Errors from actions propagate to
 /// the screen, which shows them via `SyncFailure`; the automatic check on
 /// open records its own (see [AutoSyncRunner]).
 class BackupController extends Notifier<BackupView> {
@@ -98,8 +98,8 @@ class BackupController extends Notifier<BackupView> {
   }
 
   Future<void> _onFirstOpen() async {
-    // Notifications only matter once backup is set up — which reaching
-    // this tab's dashboard means. Android asks at most once.
+    // Notifications only matter once backup is set up — which this
+    // controller existing means (see `xpencStatusProvider`). Android asks at most once.
     final settings = await ref.read(secureStoreProvider).getAutoSyncSettings();
     if (settings.anyOn) await AppNotifications.requestPermission();
     await checkOnOpen();

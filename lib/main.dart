@@ -10,6 +10,7 @@ import 'core/platform/xpenc_launcher.dart';
 import 'core/shared/session_tokens.dart';
 import 'core/config/app_config.dart';
 import 'core/providers.dart';
+import 'core/theme/theme_mode.dart';
 import 'features/friends/friends_cache.dart';
 import 'features/sync/import_link_handler.dart';
 
@@ -39,7 +40,10 @@ Future<void> main() async {
     openXpenc: () => XpencLauncher.open().ignore(),
   );
 
-  final container = ProviderContainer();
+  final themeMode = await loadThemeMode();
+  final container = ProviderContainer(
+    overrides: [initialThemeModeProvider.overrideWithValue(themeMode)],
+  );
   // Must be wired before the first OAuth redirect ever arrives — this is
   // the only moment Supabase hands back the GitHub token (see AuthService).
   container

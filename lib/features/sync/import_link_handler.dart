@@ -8,12 +8,14 @@ import '../../core/backup/import_links.dart';
 import '../../core/backup/sync_failure.dart';
 import '../../core/backup/sync_lock.dart';
 import '../../core/providers.dart';
+import '../connections/connections_screen.dart';
 import '../home/home_tab.dart';
 import 'backup_controller.dart';
 
 /// Answers XPENC's "Tell Connector" link (see [ImportLinks]) for as long as
 /// the app runs — whether the link opened Connector or found it open — by
-/// confirming the import it names, then showing the Backup tab and why.
+/// confirming the import it names, then showing XPENC's connection page and
+/// why.
 void listenForImportLinks(ProviderContainer container) {
   final links = AppLinks();
   String? last;
@@ -43,7 +45,8 @@ void listenForImportLinks(ProviderContainer container) {
       message = SyncFailure.from(e).message;
     }
 
-    container.read(homeTabProvider.notifier).select(HomeTab.backup);
+    container.read(homeTabProvider.notifier).select(HomeTab.connections);
+    _showXpencPage(container);
     if (container.exists(backupControllerProvider)) {
       await container.read(backupControllerProvider.notifier).refresh();
     }
@@ -57,4 +60,19 @@ void listenForImportLinks(ProviderContainer container) {
   links.getInitialLink().then((uri) {
     if (uri != null) handle(uri);
   }, onError: (Object _) {});
+}
+
+/// Opens XPENC's connection page on top of the tabs, unless it's already
+/// showing. Only once signed in with a username — before that the tabs
+/// aren't there to go back to.
+void _showXpencPage(ProviderContainer container) {
+  final navigator = appNavigatorKey.currentState;
+  if (navigator == null) return;
+  if (container.read(myProfileProvider).value == null) return;
+  var showing = false;
+  navigator.popUntil((route) {
+    if (route.settings.name == xpencRouteName) showing = true;
+    return showing || route.isFirst;
+  });
+  if (!showing) openXpencConnection(navigator).ignore();
 }

@@ -39,7 +39,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.sync, size: 64),
+              Image.asset(
+                'assets/logo.png',
+                height: 64,
+                color: Theme.of(context).colorScheme.onSurface,
+                semanticLabel: 'Connector logo',
+              ),
               const SizedBox(height: 16),
               Text(
                 'Connector',

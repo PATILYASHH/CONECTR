@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_mode.dart';
 import 'core/widgets/status_screens.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_shell.dart';
@@ -12,24 +13,30 @@ import 'features/profile/username_screen.dart';
 /// Connector" link (see `import_link_handler.dart`).
 final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
-class ConectrApp extends StatelessWidget {
+/// For opening a page from outside any screen — the same link opens
+/// XPENC's connection page.
+final appNavigatorKey = GlobalKey<NavigatorState>();
+
+class ConectrApp extends ConsumerWidget {
   const ConectrApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       scaffoldMessengerKey: appMessengerKey,
+      navigatorKey: appNavigatorKey,
       title: 'Connector',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
+      themeMode: ref.watch(themeModeProvider),
       home: const _Gate(),
     );
   }
 }
 
 /// Checked in order: signed in? picked a username? GitHub and the backup
-/// folder are asked for later, inside the Backup tab (`BackupGate`) — an
+/// folder are asked for later, on XPENC's connection page (`BackupGate`) — an
 /// email account gets in without ever touching GitHub.
 class _Gate extends ConsumerWidget {
   const _Gate();

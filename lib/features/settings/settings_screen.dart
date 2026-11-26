@@ -6,10 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/backup/auto_sync_settings.dart';
 import '../../core/backup/sync_rules.dart';
 import '../../core/config/app_config.dart';
+import '../../core/config/links.dart';
 import '../../core/notifications/app_notifications.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/auth_service.dart';
-import '../../core/widgets/open_xpenc_button.dart';
+import '../../core/theme/theme_mode.dart';
 import '../../core/widgets/section.dart';
 import '../../core/widgets/user_avatar.dart';
 import 'auto_sync_labels.dart';
@@ -33,7 +34,7 @@ class SettingsScreen extends ConsumerWidget {
         ref.watch(autoSyncSettingsProvider).value ?? AutoSyncSettings.defaults;
     final deviceName = ref.watch(deviceNameProvider).value;
     final version = ref.watch(_versionProvider).value;
-    final xpencInstalled = ref.watch(xpencInstalledProvider).value ?? false;
+    final themeMode = ref.watch(themeModeProvider);
     final backupReady = githubConnected && folderUri != null;
 
     return Scaffold(
@@ -92,7 +93,7 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
                 Section(
-                  title: 'Backup',
+                  title: 'Backup storage',
                   children: [
                     if (githubConnected)
                       ListTile(
@@ -133,33 +134,78 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
                 Section(
-                  title: 'XPENC',
+                  title: 'Appearance',
                   children: [
                     ListTile(
-                      leading: const Icon(
-                        Icons.account_balance_wallet_outlined,
-                      ),
-                      title: const Text('Open XPENC'),
-                      subtitle: Text(
-                        xpencInstalled
-                            ? 'Make a backup, or import a pulled one'
-                            : 'Not installed on this phone',
-                      ),
-                      trailing: xpencInstalled
-                          ? const Icon(Icons.open_in_new, size: 20)
-                          : null,
-                      enabled: xpencInstalled,
-                      onTap: () => openXpenc(context),
+                      leading: const Icon(Icons.contrast),
+                      title: const Text('Theme'),
+                      subtitle: Text(themeMode.label),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _pickTheme(context, ref, themeMode),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                _AboutCard(version: version),
+                Section(
+                  title: 'ExoSynk Labs',
+                  children: [
+                    _LinkTile(
+                      icon: Icons.language,
+                      title: 'Website',
+                      subtitle: 'exosynk.com',
+                      url: Links.exosynk,
+                    ),
+                    _LinkTile(
+                      icon: Icons.apps_outlined,
+                      title: 'More from ExoSynk Labs',
+                      subtitle: 'XPENC, FITNS, PLANR and more',
+                      url: Links.exosynkLabs,
+                    ),
+                    _LinkTile(
+                      icon: Icons.groups_outlined,
+                      title: 'ExoSynk Labs on GitHub',
+                      subtitle: 'github.com/ExoSynkLabs',
+                      url: Links.exosynkLabsGithub,
                     ),
                   ],
                 ),
                 Section(
-                  title: 'About',
+                  title: 'Help & feedback',
                   children: [
+                    _LinkTile(
+                      icon: Icons.code,
+                      title: 'Source code',
+                      subtitle: 'Open source on GitHub',
+                      url: Links.source,
+                    ),
+                    _LinkTile(
+                      icon: Icons.system_update_outlined,
+                      title: 'Check for updates',
+                      subtitle: 'Latest release on GitHub',
+                      url: Links.releases,
+                    ),
+                    _LinkTile(
+                      icon: Icons.bug_report_outlined,
+                      title: 'Report a bug',
+                      url: Links.reportBug,
+                    ),
+                    _LinkTile(
+                      icon: Icons.lightbulb_outline,
+                      title: 'Request a feature',
+                      url: Links.requestFeature,
+                    ),
                     ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: const Text('Version'),
-                      subtitle: Text(version ?? '…'),
+                      leading: const Icon(Icons.description_outlined),
+                      title: const Text('Open-source licences'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => showLicensePage(
+                        context: context,
+                        applicationName: 'CONECTR',
+                        applicationVersion: version,
+                        applicationLegalese:
+                            'Made by ExoSynk Labs · MIT License',
+                      ),
                     ),
                   ],
                 ),
@@ -183,6 +229,7 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          const SliverToBoxAdapter(child: _Footer()),
         ],
       ),
     );
@@ -279,9 +326,9 @@ Future<void> _connectGithub(BuildContext context, WidgetRef ref) async {
     await ref.read(authServiceProvider).connectGithub();
   } catch (e) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AuthService.connectErrorMessage(e))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AuthService.connectErrorMessage(e))));
   }
 }
 
@@ -318,4 +365,170 @@ Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (confirmed == true) await ref.read(authServiceProvider).signOut();
+}
+
+Future<void> _pickTheme(
+  BuildContext context,
+  WidgetRef ref,
+  ThemeMode current,
+) async {
+  final picked = await showModalBottomSheet<ThemeMode>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: RadioGroup<ThemeMode>(
+        groupValue: current,
+        onChanged: (mode) => Navigator.of(context).pop(mode),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Text(
+                'Theme',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            for (final mode in ThemeMode.values)
+              RadioListTile<ThemeMode>(value: mode, title: Text(mode.label)),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (picked != null) await ref.read(themeModeProvider.notifier).set(picked);
+}
+
+Future<void> _openUrl(String url) =>
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+class _LinkTile extends StatelessWidget {
+  const _LinkTile({
+    required this.icon,
+    required this.title,
+    required this.url,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: const Icon(Icons.open_in_new, size: 20),
+      onTap: () => _openUrl(url),
+    );
+  }
+}
+
+/// The app's identity: logo, name, version, and who makes it.
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.version});
+
+  final String? version;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/logo.png',
+              height: 40,
+              color: scheme.onSurface,
+              semanticLabel: 'CONECTR logo',
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'CONECTR',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              version == null ? 'Version …' : 'Version $version',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'The online companion for offline-first apps. Your apps stay '
+              'offline; CONECTR backs them up to your own GitHub and syncs '
+              'them across your phones.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => _openUrl(Links.exosynkLabs),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: scheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Powered by ',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'ExoSynk Labs',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Footer extends StatelessWidget {
+  const _Footer();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+      child: Text(
+        'CONECTR is an ExoSynk Labs project.\n'
+        'Free and open source under the MIT License.',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
 }
