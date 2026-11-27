@@ -100,10 +100,19 @@ Design docs: [`docs/superpowers/specs/`](superpowers/specs).
 
 ## Not built yet
 
-- **Encryption before upload.** The backup goes to GitHub as plain JSON. Even
-  in a private repo, that's a trust dependency XPENC's "no server, ever"
-  promise didn't have before. XPENC's master recovery phrase would be a
-  natural key source, rather than a second secret for the user to manage.
+- **Encryption for Drive and GitHub.** ExoCloud backups are encrypted on the
+  phone; Drive and GitHub ones are still plain JSON in the user's own
+  account. The same ExoCloud key could cover them — or XPENC's master
+  recovery phrase, rather than a second secret for the user to manage.
+- **Starting ExoCloud over without the recovery key.** Losing every phone
+  and the recovery key leaves the old backups unreadable, and there's no
+  "start fresh" yet: it needs a server function to clear the account's
+  ExoCloud rows, since phones can't delete them.
+- **ExoCloud billing.** Free during beta, capped at the newest 10 backups of
+  up to 10 MB each. A paid tier would raise those caps.
+- **Telling a closed phone about a destination switch.** Each phone follows
+  a switch the next time Connector opens on it; until then its background
+  job keeps using the old destination.
 - **Merging.** Two phones with *different* new data can't be combined; one
   side has to win.
 - **Instant pull and push notifications.** A new backup or friend request is

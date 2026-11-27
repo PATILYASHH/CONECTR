@@ -35,22 +35,26 @@ Backup, sync across phones, and friends, so your apps never need the internet th
 
 ## Highlights
 
-- 🔐 **Your storage, not ours.** Backups go to a private `XPENC-BACKUP` repo in *your* GitHub account. There's no CONECTR server holding your data.
+- ☁️ **Back up where you like.** Pick one per account:
+  - **Google Drive** — a visible `XPENC Backup` folder in *your* Drive. Easiest: sign in with Google and you're done.
+  - **ExoCloud** — kept by ExoSynk Labs, **end-to-end encrypted** on your phone (only you hold the key). Free during beta.
+  - **GitHub** — a private `XPENC-BACKUP` repo in *your* account, with full history. For developers.
 - 📱 **Sync across phones.** Pull the latest backup onto another phone, and XPENC takes it in by itself.
 - 🛡️ **Never overwrites newer data.** Uploads are fast-forward only: a phone never pushes over another phone's backup it hasn't taken in yet.
 - ⏱️ **Auto-sync** in the background, after every XPENC backup or hourly.
 - 👥 **Friends & shared entries.** Add friends by exact username and keep a shared owes/dues ledger that's the same on both phones. Every entry is accepted by the other side.
-- 🔑 **Sign in with GitHub.** The token stays in Android's secure storage.
+- 🔑 **Sign in with Google, email or GitHub.** Tokens stay in Android's secure storage.
 
 How it all works, and why: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## How it fits together
 
 ```
-XPENC (offline)          CONECTR (online)               Your GitHub
+XPENC (offline)          CONECTR (online)               Your choice
 ───────────────          ────────────────               ───────────
-writes its backup  ───▶  reads the file from      ───▶  XPENC-BACKUP
-to a shared folder       the same folder                (private repo)
+writes its backup  ───▶  reads the file from      ───▶  Google Drive,
+to a shared folder       the same folder                ExoCloud, or
+                                                        GitHub
 
 takes the backup   ◀───  hands the pulled         ◀───
 in by itself             backup to XPENC
@@ -64,20 +68,28 @@ Every release ships `SHA256SUMS.txt` to verify the download.
 
 **First run, on each phone:**
 
-1. Sign in with GitHub.
-2. Point CONECTR at XPENC's `Download/BACKUP XPENC` folder (make a backup in
+1. Sign in (Google, email or GitHub).
+2. Connections → XPENC: choose Google Drive, ExoCloud or GitHub. With
+   ExoCloud, **save the recovery key** it shows you — your other phones need
+   it, and nobody can recover it for you.
+3. Point CONECTR at XPENC's `Download/BACKUP XPENC` folder (make a backup in
    XPENC first if the folder doesn't exist yet).
-3. Tap **Upload now** on your main phone. On your other phones, CONECTR pulls
+4. Tap **Upload now** on your main phone. On your other phones, CONECTR pulls
    that backup and XPENC takes it in.
 
 ## Privacy & security
 
-- No CONECTR server stores your data. Backups live in your own private GitHub
-  repo, and sign-in goes through Supabase Auth.
+- With **Google Drive** or **GitHub**, backups live in your own account and no
+  ExoSynk server stores them. Drive access is limited to files CONECTR
+  created (`drive.file`) — never the rest of your Drive.
+- With **ExoCloud**, backups are stored by ExoSynk Labs but encrypted on your
+  phone first (AES-256-GCM) with a key that never leaves your phones. ExoSynk
+  can't read them. Lose every phone *and* the recovery key, and they're gone.
+- Sign-in goes through Supabase Auth.
 - CONECTR only reads and writes XPENC's backup file. It never touches XPENC's
   database.
-- The backup is uploaded as plain JSON for now. Encrypting it first is
-  [on the list](docs/ARCHITECTURE.md#not-built-yet).
+- Drive and GitHub backups are plain JSON in your own account; encrypting
+  those too is [on the list](docs/ARCHITECTURE.md#not-built-yet).
 - Found a vulnerability? Please follow [SECURITY.md](SECURITY.md) rather than
   opening a public issue.
 
@@ -95,8 +107,24 @@ To build it yourself, use **your own** project:
    the Client ID and Secret. Under URL Configuration, add
    `conectr://login-callback` to the Redirect URLs.
 4. **Database**: run each file in [`supabase/migrations/`](supabase/migrations)
-   once, in filename order, in the SQL Editor (or `supabase db push`).
-5. **Run**:
+   once, in filename order, in the SQL Editor (or `supabase db push`). The
+   backup-destinations migration also creates ExoCloud's private storage
+   bucket.
+5. **Google (optional — sign-in and Drive)**, in a Google Cloud project:
+   1. Enable the **Google Drive API**.
+   2. OAuth consent screen: External; scopes `openid`, `email`, `profile`,
+      `drive.file` (all non-sensitive, no review); **publish to Production** —
+      in Testing, Google drops grants after 7 days and auto-sync breaks.
+   3. OAuth client, type **Android**: package `com.yash.xpenc.conectr` and the
+      SHA-1 of the key your APK is signed with (one client per key — debug
+      and release).
+   4. OAuth client, type **Web**: its Client ID is `GOOGLE_WEB_CLIENT_ID` in
+      `dart_define.local.json`; its Client ID and secret go into Supabase →
+      Authentication → Providers → Google.
+
+   Without `GOOGLE_WEB_CLIENT_ID` the app simply hides Google sign-in and
+   Drive.
+6. **Run**:
 
    ```sh
    cp dart_define.example.json dart_define.local.json   # fill in your values
