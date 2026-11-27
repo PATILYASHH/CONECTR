@@ -57,6 +57,7 @@ dependencies:
   # refreshes it there (lib/core/shared/session_tokens.dart). Already in the
   # lock through supabase_flutter.
   shared_preferences: ^2.5.5
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:

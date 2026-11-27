@@ -54,6 +54,14 @@ class SecureStore {
     }
   }
 
+  Future<void> _delete(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } on PlatformException catch (e) {
+      throw SecureStoreException(key, e);
+    }
+  }
+
   static const _githubTokenKey = 'github_provider_token';
   static const _githubLoginKey = 'github_login';
   static const _backupFolderUriKey = 'backup_folder_uri';
@@ -62,22 +70,70 @@ class SecureStore {
   static const _deviceIdKey = 'device_id';
   static const _deviceNameKey = 'device_name';
   static const _syncStateKey = 'sync_state';
+  static const _destinationKey = 'backup_destination';
+  static const _exoCloudKeyKey = 'exocloud_key';
+  static const _driveEmailKey = 'google_drive_email';
+  static const _driveFolderIdKey = 'google_drive_folder_id';
 
-  Future<void> setGithubToken(String token) =>
-      _write(_githubTokenKey, token);
+  /// The account's backup destination, mirrored from `account_settings` so
+  /// the background job — which has no Supabase client — knows where to
+  /// sync. See `BackupDestination.key`.
+  Future<String?> getBackupDestination() => _read(_destinationKey);
+
+  Future<void> setBackupDestination(String? key) =>
+      key == null ? _delete(_destinationKey) : _write(_destinationKey, key);
+
+  /// This phone's copy of the ExoCloud key (base64). Never leaves the
+  /// phone except as the recovery key the user writes down.
+  Future<List<int>?> getExoCloudKey() async {
+    final value = await _read(_exoCloudKeyKey);
+    return value == null ? null : base64Decode(value);
+  }
+
+  Future<void> setExoCloudKey(List<int>? key) => key == null
+      ? _delete(_exoCloudKeyKey)
+      : _write(_exoCloudKeyKey, base64Encode(key));
+
+  /// The Google account Drive was connected with — the hint for fetching
+  /// Drive tokens silently, on phones with several Google accounts.
+  Future<String?> getDriveEmail() => _read(_driveEmailKey);
+
+  Future<void> setDriveEmail(String? email) =>
+      email == null ? _delete(_driveEmailKey) : _write(_driveEmailKey, email);
+
+  /// The `XPENC Backup` folder's id, looked up again when it's gone.
+  Future<String?> getDriveFolderId() => _read(_driveFolderIdKey);
+
+  Future<void> setDriveFolderId(String? id) =>
+      id == null ? _delete(_driveFolderIdKey) : _write(_driveFolderIdKey, id);
+
+  /// Forgets how this phone reached its destination — tokens, keys, ids —
+  /// and the sync state built on it. For switching destination.
+  Future<void> forgetDestination() async {
+    for (final key in [
+      _githubTokenKey,
+      _githubLoginKey,
+      _exoCloudKeyKey,
+      _driveEmailKey,
+      _driveFolderIdKey,
+      _syncStateKey,
+    ]) {
+      await _delete(key);
+    }
+  }
+
+  Future<void> setGithubToken(String token) => _write(_githubTokenKey, token);
 
   Future<String?> getGithubToken() => _read(_githubTokenKey);
 
-  Future<void> setGithubLogin(String login) =>
-      _write(_githubLoginKey, login);
+  Future<void> setGithubLogin(String login) => _write(_githubLoginKey, login);
 
   Future<String?> getGithubLogin() => _read(_githubLoginKey);
 
   Future<void> setBackupFolderUri(String uri) =>
       _write(_backupFolderUriKey, uri);
 
-  Future<String?> getBackupFolderUri() =>
-      _read(_backupFolderUriKey);
+  Future<String?> getBackupFolderUri() => _read(_backupFolderUriKey);
 
   Future<AutoSyncSettings> getAutoSyncSettings() async {
     const defaults = AutoSyncSettings.defaults;
@@ -96,14 +152,12 @@ class SecureStore {
 
   Future<String?> getDeviceId() => _read(_deviceIdKey);
 
-  Future<void> setDeviceId(String id) =>
-      _write(_deviceIdKey, id);
+  Future<void> setDeviceId(String id) => _write(_deviceIdKey, id);
 
   /// Null until the user renames this phone; see `DeviceIdentity`.
   Future<String?> getDeviceName() => _read(_deviceNameKey);
 
-  Future<void> setDeviceName(String name) =>
-      _write(_deviceNameKey, name);
+  Future<void> setDeviceName(String name) => _write(_deviceNameKey, name);
 
   Future<SyncState> getSyncState() async {
     final raw = await _read(_syncStateKey);
