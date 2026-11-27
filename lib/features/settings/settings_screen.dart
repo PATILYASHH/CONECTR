@@ -4,15 +4,18 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/backup/auto_sync_settings.dart';
+import '../../core/backup/backup_destination.dart';
+import '../../core/exocloud/exocloud_crypto.dart';
 import '../../core/backup/sync_rules.dart';
 import '../../core/config/app_config.dart';
 import '../../core/config/links.dart';
 import '../../core/notifications/app_notifications.dart';
 import '../../core/providers.dart';
-import '../../core/supabase/auth_service.dart';
 import '../../core/theme/theme_mode.dart';
 import '../../core/widgets/section.dart';
 import '../../core/widgets/user_avatar.dart';
+import '../destinations/choose_destination_screen.dart';
+import '../destinations/exocloud_key_screen.dart';
 import 'auto_sync_labels.dart';
 
 final _versionProvider = FutureProvider<String>((ref) async {
@@ -27,15 +30,17 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final username = ref.watch(myProfileProvider).value?.username;
     final email = ref.watch(authServiceProvider).currentEmail;
-    final githubConnected = ref.watch(githubTokenProvider).value != null;
+    final destination = ref.watch(backupDestinationProvider).value;
+    final connected = ref.watch(backupConnectedProvider).value ?? false;
     final login = ref.watch(githubLoginProvider).value;
+    final driveEmail = ref.watch(driveEmailProvider).value;
     final folderUri = ref.watch(backupFolderUriProvider).value;
     final settings =
         ref.watch(autoSyncSettingsProvider).value ?? AutoSyncSettings.defaults;
     final deviceName = ref.watch(deviceNameProvider).value;
     final version = ref.watch(_versionProvider).value;
     final themeMode = ref.watch(themeModeProvider);
-    final backupReady = githubConnected && folderUri != null;
+    final backupReady = connected && folderUri != null;
 
     return Scaffold(
       body: CustomScrollView(
@@ -95,33 +100,62 @@ class SettingsScreen extends ConsumerWidget {
                 Section(
                   title: 'Backup storage',
                   children: [
-                    if (githubConnected)
-                      ListTile(
-                        leading: const Icon(Icons.code),
-                        title: Text(login == null ? 'GitHub' : '@$login'),
-                        subtitle: const Text(
-                          '${AppConfig.backupRepoName} · private repo',
+                    ListTile(
+                      leading: Icon(destination?.icon ?? Icons.cloud_off),
+                      title: Text(destination?.label ?? 'Not chosen yet'),
+                      subtitle: Text(switch (destination) {
+                        null => 'Choose where XPENC backs up',
+                        BackupDestination.github =>
+                          connected
+                              ? '${login == null ? '' : '@$login · '}'
+                                    '${AppConfig.backupRepoName} · private repo'
+                              : 'Not connected on this phone',
+                        BackupDestination.googleDrive =>
+                          driveEmail == null
+                              ? 'Not connected on this phone'
+                              : '$driveEmail · XPENC Backup folder',
+                        BackupDestination.exoCloud =>
+                          connected
+                              ? 'End-to-end encrypted · free during beta'
+                              : 'Locked on this phone',
+                      }),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              const ChooseDestinationScreen(changing: true),
                         ),
-                        trailing: login == null
-                            ? null
-                            : const Icon(Icons.open_in_new, size: 20),
-                        onTap: login == null
-                            ? null
-                            : () => launchUrl(
-                                Uri.parse(
-                                  'https://github.com/$login/'
-                                  '${AppConfig.backupRepoName}',
-                                ),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                      )
-                    else
+                      ),
+                    ),
+                    if (destination == BackupDestination.github &&
+                        connected &&
+                        login != null)
                       ListTile(
-                        leading: const Icon(Icons.code),
-                        title: const Text('Connect GitHub'),
-                        subtitle: const Text('Turns on backups'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => _connectGithub(context, ref),
+                        leading: const Icon(Icons.open_in_new),
+                        title: const Text('Open the repo'),
+                        onTap: () => launchUrl(
+                          Uri.parse(
+                            'https://github.com/$login/'
+                            '${AppConfig.backupRepoName}',
+                          ),
+                          mode: LaunchMode.externalApplication,
+                        ),
+                      ),
+                    if (destination == BackupDestination.googleDrive &&
+                        driveEmail != null)
+                      ListTile(
+                        leading: const Icon(Icons.open_in_new),
+                        title: const Text('Open in Google Drive'),
+                        onTap: () => _openDriveFolder(ref),
+                      ),
+                    if (destination == BackupDestination.exoCloud && connected)
+                      ListTile(
+                        leading: const Icon(Icons.key_outlined),
+                        title: const Text('Show recovery key'),
+                        subtitle: const Text(
+                          'Needed to restore on a new phone',
+                        ),
+                        onTap: () => _showRecoveryKey(context, ref),
                       ),
                     if (folderUri != null)
                       ListTile(
@@ -321,17 +355,6 @@ Future<void> _rename(
   ref.invalidate(deviceNameProvider);
 }
 
-Future<void> _connectGithub(BuildContext context, WidgetRef ref) async {
-  try {
-    await ref.read(authServiceProvider).connectGithub();
-  } catch (e) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(AuthService.connectErrorMessage(e))));
-  }
-}
-
 Future<void> _changeFolder(WidgetRef ref) async {
   final uri = await ref.read(backupFolderServiceProvider).pickBackupFolder();
   if (uri == null) return;
@@ -349,8 +372,9 @@ Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     builder: (context) => AlertDialog(
       title: const Text('Sign out?'),
       content: const Text(
-        'Stops auto-sync on this phone and forgets the GitHub connection and '
-        'folder here. Your account, username and backups on GitHub stay.',
+        'Stops auto-sync on this phone and forgets its backup connection and '
+        'folder. Your account, username and backups stay where they are. '
+        'With ExoCloud, have your recovery key ready to sign back in.',
       ),
       actions: [
         TextButton(
@@ -531,4 +555,26 @@ class _Footer extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _openDriveFolder(WidgetRef ref) async {
+  final id = await ref.read(secureStoreProvider).getDriveFolderId();
+  await launchUrl(
+    Uri.parse(
+      id == null
+          ? 'https://drive.google.com/drive/my-drive'
+          : 'https://drive.google.com/drive/folders/$id',
+    ),
+    mode: LaunchMode.externalApplication,
+  );
+}
+
+Future<void> _showRecoveryKey(BuildContext context, WidgetRef ref) async {
+  final key = await ref.read(secureStoreProvider).getExoCloudKey();
+  if (key == null || !context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (_) =>
+        RecoveryKeyDialog(recoveryKey: ExoCloudCrypto.toRecoveryKey(key)),
+  );
 }

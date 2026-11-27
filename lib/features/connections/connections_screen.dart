@@ -43,8 +43,8 @@ class ConnectionsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     'Your apps stay offline. Connect one here and Connector '
-                    'backs it up to your own GitHub and keeps it in sync '
-                    'across your phones.',
+                    'backs it up to Google Drive, ExoCloud or GitHub, and '
+                    'keeps it in sync across your phones.',
                     style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                   ),
                 ),

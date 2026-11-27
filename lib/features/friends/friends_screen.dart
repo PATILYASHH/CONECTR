@@ -108,8 +108,9 @@ class FriendsScreen extends ConsumerWidget {
 }
 
 void _openFind(BuildContext context) {
-  Navigator.of(context)
-      .push(MaterialPageRoute<void>(builder: (_) => const FindFriendScreen()));
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const FindFriendScreen()));
 }
 
 class _SearchPill extends StatelessWidget {
@@ -132,8 +133,9 @@ class _SearchPill extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 'Find by username',
-                style: Theme.of(context).textTheme.bodyLarge
-                    ?.copyWith(color: muted),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: muted),
               ),
             ],
           ),

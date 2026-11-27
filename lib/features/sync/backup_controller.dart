@@ -147,7 +147,7 @@ class BackupController extends Notifier<BackupView> {
     );
   }
 
-  /// The sync icon: upload if GitHub's backup is this phone's to replace,
+  /// The sync icon: upload if the cloud's backup is this phone's to replace,
   /// then bring down anything from another phone. Never overwrites another
   /// phone's backup — that takes "Upload now" and a confirmation.
   Future<String> syncNow() async {
@@ -159,7 +159,8 @@ class BackupController extends Notifier<BackupView> {
         (_, Pulled(:final remote)) =>
           'New backup from ${remote.deviceName ?? 'another phone'} saved '
               'to the folder.',
-        (Uploaded(), _) => 'Backed up to GitHub.',
+        (Uploaded(), _) =>
+          'Backed up to ${_service.backups.destination.label}.',
         (RemoteNotImported(:final remote), _) =>
           'Import the backup from ${remote.deviceName ?? 'another phone'} '
               'first. Uploads from this phone wait until you do.',

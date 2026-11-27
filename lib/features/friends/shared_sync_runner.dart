@@ -172,8 +172,9 @@ class SharedSyncRunner {
     if (_disposed) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 600), () async {
-      final outcome = await SharedSync(announce: AppNotifications.sharedEntry)
-          .run(wait: const Duration(seconds: 20));
+      final outcome = await SharedSync(
+        announce: AppNotifications.sharedEntry,
+      ).run(wait: const Duration(seconds: 20));
       if (_disposed) return;
       if (outcome == SharedSyncOutcome.synced) {
         _ref.invalidate(sharedEntriesProvider);

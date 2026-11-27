@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/app_config.dart';
 import '../../core/providers.dart';
 import '../../core/supabase/auth_service.dart';
+import '../destinations/choose_destination_screen.dart';
 
 /// For an account with no GitHub token yet — an email sign-up, or a GitHub
 /// one whose token was cleared. The token lands via
@@ -82,7 +83,19 @@ class _ConnectGithubScreenState extends ConsumerState<ConnectGithubScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Connect XPENC')),
+      appBar: AppBar(
+        title: const Text('Connect GitHub'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ChooseDestinationScreen(changing: true),
+              ),
+            ),
+            child: const Text('Change'),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

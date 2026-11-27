@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/backup/backup_destination.dart';
 import '../../core/format/when.dart';
 import '../../core/providers.dart';
 import '../sync/backup_controller.dart';
@@ -34,11 +35,14 @@ class XpencStatus {
 /// alive — which runs the "check on open" sync. The Dashboard watches it
 /// from launch, so that check runs whichever tab is showing.
 final xpencStatusProvider = Provider<XpencStatus>((ref) {
-  final token = ref.watch(githubTokenProvider);
+  final destination = ref.watch(backupDestinationProvider);
+  final connected = ref.watch(backupConnectedProvider);
   final folder = ref.watch(backupFolderUriProvider);
 
   bool loading(AsyncValue<Object?> v) => v.isLoading && !v.hasValue;
-  if (loading(token) || (token.value != null && loading(folder))) {
+  if (loading(destination) ||
+      loading(connected) ||
+      (connected.value == true && loading(folder))) {
     return const XpencStatus(
       tone: StatusTone.busy,
       icon: Icons.hourglass_empty,
@@ -47,12 +51,23 @@ final xpencStatusProvider = Provider<XpencStatus>((ref) {
     );
   }
   // A failed read counts as not set up; the XPENC page shows the error.
-  if (token.value == null) {
+  final where = destination.value;
+  if (where == null) {
     return const XpencStatus(
       tone: StatusTone.off,
       icon: Icons.link_off,
       title: 'Not connected',
-      detail: 'Connect GitHub to back up XPENC',
+      detail: 'Choose where to back up XPENC',
+    );
+  }
+  if (connected.value != true) {
+    return XpencStatus(
+      tone: StatusTone.off,
+      icon: Icons.link_off,
+      title: 'Not connected',
+      detail: where == BackupDestination.exoCloud
+          ? 'Unlock ExoCloud on this phone to back up'
+          : 'Connect ${where.label} to back up XPENC',
     );
   }
   if (folder.value == null) {
@@ -68,7 +83,9 @@ final xpencStatusProvider = Provider<XpencStatus>((ref) {
   final sync = view.sync;
   final remote = sync.remote;
   final last = remote?.backupModifiedAt;
-  final lastLine = last == null ? null : 'Last backup ${formatWhen(last)}';
+  final lastLine = last == null
+      ? null
+      : '${where.label} · last backup ${formatWhen(last)}';
 
   XpencStatus make(StatusTone tone, IconData icon, String title, String d) =>
       XpencStatus(
@@ -103,7 +120,8 @@ final xpencStatusProvider = Provider<XpencStatus>((ref) {
       StatusTone.attention,
       Icons.pause_circle_outline,
       'Waiting for import',
-      'A newer backup from ${remote?.deviceName ?? 'another phone'} is on GitHub',
+      'A newer backup from ${remote?.deviceName ?? 'another phone'} is in '
+          '${where.label}',
     );
   }
   if (view.uploadPending) {
@@ -111,7 +129,7 @@ final xpencStatusProvider = Provider<XpencStatus>((ref) {
       StatusTone.attention,
       Icons.cloud_upload_outlined,
       'New backup to upload',
-      lastLine ?? "XPENC made a backup GitHub doesn't have yet",
+      lastLine ?? "XPENC made a backup ${where.label} doesn't have yet",
     );
   }
   if (remote == null) {

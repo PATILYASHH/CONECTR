@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/backup/auto_sync_settings.dart';
+import '../../core/backup/backup_destination.dart';
 import '../../core/backup/backup_meta.dart';
 import '../../core/backup/backup_sync_service.dart';
 import '../../core/backup/sync_failure.dart';
@@ -9,9 +10,11 @@ import '../../core/backup/sync_state.dart';
 import '../../core/config/app_config.dart';
 import '../../core/format/when.dart';
 import '../../core/providers.dart';
+import '../../core/google/google_auth.dart';
 import '../../core/supabase/auth_service.dart';
 import '../../core/widgets/open_xpenc_button.dart';
 import '../../core/widgets/sync_icon_button.dart';
+import '../destinations/choose_destination_screen.dart';
 import '../home/home_tab.dart';
 import '../settings/auto_sync_labels.dart';
 import 'backup_controller.dart';
@@ -127,6 +130,9 @@ class BackupScreen extends ConsumerWidget {
   }
 }
 
+BackupDestination _dest(WidgetRef ref) =>
+    ref.read(backupDestinationProvider).value ?? BackupDestination.github;
+
 String _fromWhom(RemoteBackup remote, String? thisDeviceId) {
   if (remote.deviceId != null && remote.deviceId == thisDeviceId) {
     return 'from this phone';
@@ -147,12 +153,16 @@ Future<void> _upload(BuildContext context, WidgetRef ref) {
     var result = await controller.upload();
     if (result is RemoteNotImported) {
       if (!context.mounted) return '';
-      final confirmed = await _confirmOverwrite(context, result.remote);
+      final confirmed = await _confirmOverwrite(
+        context,
+        result.remote,
+        _dest(ref),
+      );
       if (confirmed != true) return '';
       result = await controller.upload(overwriteNewer: true);
     }
     return switch (result) {
-      Uploaded() => 'Backed up to GitHub.',
+      Uploaded() => 'Backed up to ${_dest(ref).label}.',
       UploadNotNeeded() => 'Already up to date.',
       NoLocalBackup() =>
         'No XPENC backup in the folder yet. In XPENC: '
@@ -180,7 +190,7 @@ Future<void> _pull(BuildContext context, WidgetRef ref) {
         .pullLatest();
     return switch (result) {
       Pulled() => 'Saved to the folder as ${AppConfig.backupFileName}.',
-      NothingRemote() => 'Nothing on GitHub yet.',
+      NothingRemote() => 'Nothing in ${_dest(ref).label} yet.',
       PullNotNeeded() => 'Already up to date.',
     };
   });
@@ -205,33 +215,65 @@ Future<void> _report(
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
-/// The fresh token lands through `AuthService.listenAndPersistGithubToken`,
-/// which clears the problem; the dashboard hears of it by itself.
+/// GitHub: the fresh token lands through
+/// `AuthService.listenAndPersistGithubToken`, which clears the problem.
+/// Drive: a new consent, then the problem is cleared here. Either way the
+/// dashboard hears of it by itself.
 Future<void> _reconnect(BuildContext context, WidgetRef ref) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
-    await ref.read(authServiceProvider).connectGithub();
+    switch (_dest(ref)) {
+      case BackupDestination.github:
+        await ref.read(authServiceProvider).connectGithub();
+      case BackupDestination.googleDrive:
+        final email = await GoogleAuth.connectDrive();
+        final store = ref.read(secureStoreProvider);
+        await store.setDriveEmail(email);
+        await store.updateSyncState((s) => s.clearProblem());
+        ref.invalidate(driveEmailProvider);
+        await ref.read(backupControllerProvider.notifier).refresh();
+      case BackupDestination.exoCloud:
+        // Nothing to reconnect; ExoCloud problems say what to do.
+        break;
+    }
   } catch (e) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(AuthService.connectErrorMessage(e))),
-      );
+    if (_dest(ref) == BackupDestination.github) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(AuthService.connectErrorMessage(e))),
+        );
+    } else if (!'$e'.toLowerCase().contains('cancel')) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text("Couldn't reconnect Google Drive: $e")),
+        );
+    }
   }
 }
 
-Future<bool?> _confirmOverwrite(BuildContext context, RemoteBackup remote) {
+Future<bool?> _confirmOverwrite(
+  BuildContext context,
+  RemoteBackup remote,
+  BackupDestination destination,
+) {
   final other = remote.deviceName ?? 'another phone';
+  final kept = switch (destination) {
+    BackupDestination.github => "stays in the repo's history",
+    BackupDestination.googleDrive => 'stays in your XPENC Backup folder',
+    BackupDestination.exoCloud => 'stays among your recent ExoCloud backups',
+  };
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text('Replace the backup from $other?'),
       content: Text(
-        'GitHub\'s backup is from $other, '
+        '${destination.label}\'s backup is from $other, '
         '${formatWhen(remote.backupModifiedAt)}, and this phone hasn\'t '
         'imported it. Uploading makes this phone\'s backup the latest '
         'instead, so anything added on $other since won\'t be in it. '
-        '$other\'s backup stays in the repo\'s history.',
+        '$other\'s backup $kept.',
       ),
       actions: [
         TextButton(
@@ -258,38 +300,41 @@ class _StatusCard extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final sync = view.sync;
     final problem = sync.problem;
+    final destination =
+        ref.watch(backupDestinationProvider).value ?? BackupDestination.github;
+    final where = destination.label;
 
     final (IconData icon, String title, String body) = switch (view) {
       BackupView(busy: BackupBusy.upload) => (
         Icons.cloud_upload_outlined,
         'Uploading…',
-        'Sending the newest XPENC backup to GitHub.',
+        'Sending the newest XPENC backup to $where.',
       ),
       BackupView(busy: BackupBusy.pull) => (
         Icons.cloud_download_outlined,
         'Downloading…',
-        'Fetching the latest backup from GitHub.',
+        'Fetching the latest backup from $where.',
       ),
       BackupView(busy: BackupBusy.checkingAccess) => (
         Icons.sync,
-        'Checking GitHub…',
-        'Making sure GitHub still accepts this phone.',
+        'Checking $where…',
+        'Making sure $where still accepts this phone.',
       ),
       BackupView(busy: BackupBusy.sync) => (
         Icons.sync,
         'Syncing…',
-        'Checking GitHub for anything new.',
+        'Checking $where for anything new.',
       ),
       _ when problem != null => (Icons.error_outline, 'Backup paused', problem),
       _ when view.waitingForImport => (
         Icons.pause_circle_outline,
         'Waiting for import',
-        _waitingBody(sync),
+        _waitingBody(sync, where),
       ),
       _ when view.uploadPending => (
         Icons.cloud_upload_outlined,
         'New backup to upload',
-        'XPENC made a backup GitHub doesn\'t have yet.',
+        'XPENC made a backup $where doesn\'t have yet.',
       ),
       _ when sync.remote == null => (
         Icons.cloud_off_outlined,
@@ -328,7 +373,7 @@ class _StatusCard extends ConsumerWidget {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => _reconnect(context, ref),
-                child: const Text('Reconnect GitHub'),
+                child: Text('Reconnect $where'),
               ),
             ],
           ],
@@ -337,12 +382,12 @@ class _StatusCard extends ConsumerWidget {
     );
   }
 
-  static String _waitingBody(SyncState sync) {
+  static String _waitingBody(SyncState sync, String where) {
     final other = sync.remote?.deviceName ?? 'another phone';
     final step = sync.pendingImport == null
         ? 'Pull it and import it in XPENC'
         : 'Import it in XPENC (below)';
-    return 'GitHub has a backup from $other that this phone hasn\'t '
+    return '$where has a backup from $other that this phone hasn\'t '
         'imported, so uploads from here wait. $step — or Upload now to '
         'replace it with this phone\'s.';
   }
@@ -516,21 +561,27 @@ class _FactTile extends StatelessWidget {
   }
 }
 
-class _RemoteTile extends StatelessWidget {
+class _RemoteTile extends ConsumerWidget {
   const _RemoteTile({required this.view});
 
   final BackupView view;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final remote = view.sync.remote;
+    final destination =
+        ref.watch(backupDestinationProvider).value ?? BackupDestination.github;
     return _FactTile(
-      label: 'On GitHub',
+      label: destination.inLabel,
       value: remote == null
           ? 'Nothing yet'
           : formatWhen(remote.backupModifiedAt),
       detail: remote == null
-          ? AppConfig.backupRepoName
+          ? switch (destination) {
+              BackupDestination.github => AppConfig.backupRepoName,
+              BackupDestination.googleDrive => 'XPENC Backup folder',
+              BackupDestination.exoCloud => 'End-to-end encrypted',
+            }
           : _fromWhom(remote, view.thisDeviceId),
     );
   }
