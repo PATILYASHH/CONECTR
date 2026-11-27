@@ -56,87 +56,100 @@ void main() {
 
   tearDown(() => root.deleteSync(recursive: true));
 
-  test('sends what XPENC queued in order, then leaves the result for it',
-      () async {
-    await queue('0001-a', add('op-0001-add', 'ref-dinner'));
-    await queue('0002-b', {
-      'opId': 'op-0002-edit',
-      'type': 'edit',
-      'clientRef': 'ref-dinner',
-      'theyOwe': true,
-      'amountMinor': 60000,
-      'currency': 'INR',
-      'date': '2026-11-05',
-    });
+  test(
+    'sends what XPENC queued in order, then leaves the result for it',
+    () async {
+      await queue('0001-a', add('op-0001-add', 'ref-dinner'));
+      await queue('0002-b', {
+        'opId': 'op-0002-edit',
+        'type': 'edit',
+        'clientRef': 'ref-dinner',
+        'theyOwe': true,
+        'amountMinor': 60000,
+        'currency': 'INR',
+        'date': '2026-11-05',
+      });
 
-    expect(await sync().run(), SharedSyncOutcome.synced);
+      expect(await sync().run(), SharedSyncOutcome.synced);
 
-    expect(api.applied, ['add ref-dinner', 'edit ref-dinner']);
-    expect(await files.outbox(), isEmpty);
-    final shared = await snapshot();
-    expect(shared['signedIn'], isTrue);
-    expect(shared['me'], 'me');
-    final entry = (shared['entries'] as List).single as Map<String, dynamic>;
-    expect(entry['friendId'], 'ana');
-    expect(entry['byMe'], isTrue);
-    expect(entry['clientRef'], 'ref-dinner');
-    expect(entry['theyOwe'], isTrue);
-    expect(entry['amountMinor'], 60000);
-    expect(entry['status'], 'pending');
-  });
+      expect(api.applied, ['add ref-dinner', 'edit ref-dinner']);
+      expect(await files.outbox(), isEmpty);
+      final shared = await snapshot();
+      expect(shared['signedIn'], isTrue);
+      expect(shared['me'], 'me');
+      final entry = (shared['entries'] as List).single as Map<String, dynamic>;
+      expect(entry['friendId'], 'ana');
+      expect(entry['byMe'], isTrue);
+      expect(entry['clientRef'], 'ref-dinner');
+      expect(entry['theyOwe'], isTrue);
+      expect(entry['amountMinor'], 60000);
+      expect(entry['status'], 'pending');
+    },
+  );
 
-  test('stops at the first op that may work later, so nothing overtakes it',
-      () async {
-    await queue('0001-a', add('op-0001-add', 'ref-dinner'));
-    await queue('0002-b', add('op-0002-add', 'ref-taxi'));
-    api.failNext = SharedApiException(503, 'unavailable');
+  test(
+    'stops at the first op that may work later, so nothing overtakes it',
+    () async {
+      await queue('0001-a', add('op-0001-add', 'ref-dinner'));
+      await queue('0002-b', add('op-0002-add', 'ref-taxi'));
+      api.failNext = SharedApiException(503, 'unavailable');
 
-    expect(await sync().run(), SharedSyncOutcome.unavailable);
-    expect((await files.outbox()).length, 2);
+      expect(await sync().run(), SharedSyncOutcome.unavailable);
+      expect((await files.outbox()).length, 2);
 
-    expect(await sync().run(), SharedSyncOutcome.synced);
-    expect(api.applied, ['add ref-dinner', 'add ref-taxi']);
-  });
+      expect(await sync().run(), SharedSyncOutcome.synced);
+      expect(api.applied, ['add ref-dinner', 'add ref-taxi']);
+    },
+  );
 
-  test('a refused op is set aside with its reason, and the rest goes on',
-      () async {
-    await queue('0001-a', add('op-0001-add', 'ref-dinner'));
-    await queue('0002-b', add('op-0002-add', 'ref-taxi'));
-    api.failNext = SharedApiException(400, 'not_friends');
+  test(
+    'a refused op is set aside with its reason, and the rest goes on',
+    () async {
+      await queue('0001-a', add('op-0001-add', 'ref-dinner'));
+      await queue('0002-b', add('op-0002-add', 'ref-taxi'));
+      api.failNext = SharedApiException(400, 'not_friends');
 
-    expect(await sync().run(), SharedSyncOutcome.synced);
+      expect(await sync().run(), SharedSyncOutcome.synced);
 
-    expect(api.applied, ['add ref-taxi']);
-    final failed = (await snapshot())['failed'] as List;
-    expect(failed.single, containsPair('clientRef', 'ref-dinner'));
-    expect(failed.single, containsPair('error', 'not_friends'));
-  });
+      expect(api.applied, ['add ref-taxi']);
+      final failed = (await snapshot())['failed'] as List;
+      expect(failed.single, containsPair('clientRef', 'ref-dinner'));
+      expect(failed.single, containsPair('error', 'not_friends'));
+    },
+  );
 
-  test('a friend\'s new entry is announced once, and again once edited',
-      () async {
-    api.rows.add(_row('e1', createdBy: 'ana', version: 1));
+  test(
+    'a friend\'s new entry is announced once, and again once edited',
+    () async {
+      api.rows.add(_row('e1', createdBy: 'ana', version: 1));
 
-    await sync().run();
-    await sync().run();
-    expect(announced, ['e1@ana']);
+      await sync().run();
+      await sync().run();
+      expect(announced, ['e1@ana']);
 
-    api.rows[0] = _row('e1', createdBy: 'ana', version: 2);
-    await sync().run();
-    expect(announced, ['e1@ana', 'e1@ana']);
-  });
+      api.rows[0] = _row('e1', createdBy: 'ana', version: 2);
+      await sync().run();
+      expect(announced, ['e1@ana', 'e1@ana']);
+    },
+  );
 
-  test('signed out: XPENC hears so, and nothing queued goes out later',
-      () async {
-    await queue('0001-a', add('op-0001-add', 'ref-dinner'));
-    token = const SignedOut();
+  test(
+    'signed out: XPENC hears so, and nothing queued goes out later',
+    () async {
+      await queue('0001-a', add('op-0001-add', 'ref-dinner'));
+      token = const SignedOut();
 
-    expect(await sync().run(), SharedSyncOutcome.signedOut);
+      expect(await sync().run(), SharedSyncOutcome.signedOut);
 
-    expect(await files.outbox(), isEmpty);
-    final shared = await snapshot();
-    expect(shared['signedIn'], isFalse);
-    expect((shared['failed'] as List).single, containsPair('error', 'signed_out'));
-  });
+      expect(await files.outbox(), isEmpty);
+      final shared = await snapshot();
+      expect(shared['signedIn'], isFalse);
+      expect(
+        (shared['failed'] as List).single,
+        containsPair('error', 'signed_out'),
+      );
+    },
+  );
 
   test('offline: the outbox waits and the last snapshot stays', () async {
     await sync().run();
@@ -225,8 +238,6 @@ class _FakeApi implements SharedApi {
   Future<({String? username, List<Profile> friends})> fetchFriends(
     String token,
     String myId,
-  ) async => (
-    username: 'yash',
-    friends: const [Profile(id: 'ana', username: 'ana')],
-  );
+  ) async =>
+      (username: 'yash', friends: const [Profile(id: 'ana', username: 'ana')]);
 }

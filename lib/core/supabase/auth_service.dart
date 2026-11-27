@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../background/auto_sync.dart';
 import '../config/app_config.dart';
 import '../shared/shared_sync.dart';
+import '../google/google_auth.dart';
 import '../storage/secure_store.dart';
 
 /// Wraps Supabase Auth for the one thing Connector needs from it: a GitHub
@@ -100,6 +101,32 @@ class AuthService {
     );
   }
 
+  /// "Continue with Google": Play Services' account picker, then the ID
+  /// token straight to Supabase — no browser, no client secret. Needs the
+  /// Google provider enabled in Supabase with the Web client's id.
+  Future<void> signInWithGoogle() async {
+    final idToken = await GoogleAuth.signIn();
+    await _auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: idToken,
+    );
+  }
+
+  /// [signInWithGoogle]'s errors, in words.
+  static String googleErrorMessage(Object error) {
+    final text = '$error'.toLowerCase();
+    if (error is GoogleNotConfiguredException) return '$error';
+    if (text.contains('canceled') || text.contains('cancelled')) return '';
+    if (text.contains('provider is not enabled') ||
+        text.contains('unsupported provider')) {
+      return "Google sign-in isn't switched on for this Connector yet.";
+    }
+    if (text.contains('socket') || text.contains('network')) {
+      return "Couldn't reach Google. Check your connection.";
+    }
+    return "Couldn't sign in with Google: $error";
+  }
+
   /// Emails a 6-digit sign-in code. Creates the account on first use —
   /// there's no separate sign-up. The code only appears in the email if
   /// the Supabase "Magic Link" template includes `{{ .Token }}`.
@@ -154,6 +181,8 @@ class AuthService {
     // Store next: signing out re-reads every per-account provider (see
     // `currentUserIdProvider`), and they should find it already empty.
     await _secureStore.clearAll();
+    // So the next Google sign-in or Drive connection shows the picker.
+    await GoogleAuth.signOut().catchError((Object _) {});
     await _auth.signOut();
     // XPENC hears "signed out", and nothing it queued goes out later under
     // whoever signs in next.

@@ -15,6 +15,15 @@ class AppConfig {
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// The *Web* OAuth client's id from Google Cloud — what Google signs ID
+  /// tokens for, and what Supabase's Google provider checks. Empty: Google
+  /// sign-in and Drive are shown as not set up instead of failing.
+  static const googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+
+  static bool get googleConfigured => googleWebClientId.isNotEmpty;
+
   /// Must match an intent-filter in AndroidManifest.xml AND a redirect URL
   /// allow-listed in the Supabase project's Auth > URL Configuration.
   static const githubOAuthRedirect = 'conectr://login-callback';

@@ -99,7 +99,10 @@ class SharedFiles {
   Future<List<Map<String, dynamic>>> readFailures() async {
     final raw = await _readJson(_failedFile);
     if (raw is! List) return [];
-    return [for (final f in raw) if (f is Map<String, dynamic>) f];
+    return [
+      for (final f in raw)
+        if (f is Map<String, dynamic>) f,
+    ];
   }
 
   /// Signing out: nothing queued may go out later under another account.

@@ -199,10 +199,7 @@ class DeleteOp extends SharedOp {
   final String clientRef;
 
   @override
-  Map<String, dynamic> describe() => {
-    'type': 'delete',
-    'clientRef': clientRef,
-  };
+  Map<String, dynamic> describe() => {'type': 'delete', 'clientRef': clientRef};
 }
 
 class RespondOp extends SharedOp {

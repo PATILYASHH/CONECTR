@@ -21,7 +21,9 @@ class SharedApiException implements Exception {
   /// Retrying won't help — the request itself is refused. Anything else
   /// (5xx, rate limits) is worth another try.
   bool get permanent =>
-      statusCode >= 400 && statusCode < 500 && statusCode != 408 &&
+      statusCode >= 400 &&
+      statusCode < 500 &&
+      statusCode != 408 &&
       statusCode != 429;
 
   @override
@@ -64,18 +66,19 @@ class SharedApi {
     String token,
     String myId,
   ) async {
-    final mine = await _get(token, 'profiles', {
-      'select': 'username',
-      'id': 'eq.$myId',
-    }) as List<dynamic>;
+    final mine =
+        await _get(token, 'profiles', {'select': 'username', 'id': 'eq.$myId'})
+            as List<dynamic>;
     if (mine.isEmpty) return (username: null, friends: const <Profile>[]);
     const side = 'id,username,display_name';
-    final rows = await _get(token, 'friendships', {
-      'select':
-          'requester:profiles!friendships_requester_id_fkey($side),'
-          'addressee:profiles!friendships_addressee_id_fkey($side)',
-      'status': 'eq.accepted',
-    }) as List<dynamic>;
+    final rows =
+        await _get(token, 'friendships', {
+              'select':
+                  'requester:profiles!friendships_requester_id_fkey($side),'
+                  'addressee:profiles!friendships_addressee_id_fkey($side)',
+              'status': 'eq.accepted',
+            })
+            as List<dynamic>;
     final friends = <Profile>[];
     for (final row in rows.cast<Map<String, dynamic>>()) {
       final requester = row['requester'] as Map<String, dynamic>?;
@@ -109,11 +112,7 @@ class SharedApi {
     RespondOp(:final entryId, :final accept, :final version) => _rpc(
       token,
       'respond_shared_entry',
-      {
-        'p_id': entryId,
-        'p_accept': accept,
-        'p_expected_version': version,
-      },
+      {'p_id': entryId, 'p_accept': accept, 'p_expected_version': version},
     ),
   };
 

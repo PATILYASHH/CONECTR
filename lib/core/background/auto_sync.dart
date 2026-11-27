@@ -4,14 +4,13 @@ import 'package:workmanager/workmanager.dart';
 
 import '../backup/auto_sync_settings.dart';
 import '../backup/backup_folder_service.dart';
+import '../backup/backup_stores.dart';
 import '../backup/backup_sync_service.dart';
 import '../backup/sync_failure.dart';
 import '../backup/sync_lock.dart';
 import '../backup/sync_rules.dart';
 import '../backup/sync_state.dart';
 import '../device/device_identity.dart';
-import '../github/github_api.dart';
-import '../github/github_backup_store.dart';
 import '../notifications/app_notifications.dart';
 import '../shared/shared_sync.dart';
 import '../storage/secure_store.dart';
@@ -26,7 +25,8 @@ const sharedSyncTask = 'connector-shared-sync';
 const _sharedPeriodicTask = 'connector-shared-periodic';
 
 /// Entry point of the background isolate WorkManager starts. No Riverpod,
-/// no Supabase client — just the store, GitHub, the folder, and Supabase's
+/// no Supabase client — just the store, the backup destination, the folder,
+/// and Supabase's
 /// REST API with a token from `SessionTokens`.
 @pragma('vm:entry-point')
 void autoSyncDispatcher() {
@@ -39,7 +39,7 @@ void autoSyncDispatcher() {
     final store = SecureStore();
     await AutoSyncRunner(
       BackupSyncService(
-        backups: GithubBackupStore(GithubApi(), store),
+        backups: backupStoreFor(await cachedDestination(store), store),
         folder: BackupFolderService(),
         store: store,
         device: DeviceIdentity(store),

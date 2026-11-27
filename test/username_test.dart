@@ -7,10 +7,12 @@ void main() {
       expect(Username.normalize('  @Yash_P '), 'yash_p');
     });
 
-    test('leaves an @ that is not leading alone, for formatError to reject',
-        () {
-      expect(Username.normalize('ya@sh'), 'ya@sh');
-    });
+    test(
+      'leaves an @ that is not leading alone, for formatError to reject',
+      () {
+        expect(Username.normalize('ya@sh'), 'ya@sh');
+      },
+    );
   });
 
   group('Username.formatError', () {

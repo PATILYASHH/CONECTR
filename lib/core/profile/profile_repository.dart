@@ -4,10 +4,10 @@ class Profile {
   const Profile({required this.id, required this.username, this.displayName});
 
   factory Profile.fromJson(Map<String, dynamic> json) => Profile(
-        id: json['id'] as String,
-        username: json['username'] as String,
-        displayName: json['display_name'] as String?,
-      );
+    id: json['id'] as String,
+    username: json['username'] as String,
+    displayName: json['display_name'] as String?,
+  );
 
   final String id;
   final String username;

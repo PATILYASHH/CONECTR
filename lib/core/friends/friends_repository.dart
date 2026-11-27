@@ -26,10 +26,9 @@ class FriendsRepository {
 
   /// Exact match on an already-normalized username, or null.
   Future<Profile?> findUser(String username) async {
-    final rows = await _client.rpc(
-      'find_user',
-      params: {'p_username': username},
-    ) as List<dynamic>;
+    final rows =
+        await _client.rpc('find_user', params: {'p_username': username})
+            as List<dynamic>;
     return rows.isEmpty
         ? null
         : Profile.fromJson(rows.first as Map<String, dynamic>);

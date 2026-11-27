@@ -1,4 +1,5 @@
 {
   "SUPABASE_URL": "https://your-project-ref.supabase.co",
-  "SUPABASE_ANON_KEY": "your-anon-key"
+  "SUPABASE_ANON_KEY": "your-anon-key",
+  "GOOGLE_WEB_CLIENT_ID": "1234567890-abc.apps.googleusercontent.com"
 }
