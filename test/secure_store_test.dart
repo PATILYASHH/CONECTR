@@ -10,14 +10,14 @@ void main() {
     final a = SecureStore();
     final b = SecureStore();
     await Future.wait([
-      a.updateSyncState((s) => s.lastPulledCommitSha = 'pulled'),
-      b.updateSyncState((s) => s.baseCommitSha = 'base'),
+      a.updateSyncState((s) => s.lastPulledVersionId = 'pulled'),
+      b.updateSyncState((s) => s.baseVersionId = 'base'),
       a.updateSyncState((s) => s.problem = 'problem'),
     ]);
 
     final state = await a.getSyncState();
-    expect(state.lastPulledCommitSha, 'pulled');
-    expect(state.baseCommitSha, 'base');
+    expect(state.lastPulledVersionId, 'pulled');
+    expect(state.baseVersionId, 'base');
     expect(state.problem, 'problem');
   });
 
@@ -27,8 +27,8 @@ void main() {
       store.updateSyncState((s) => throw StateError('boom')),
       throwsStateError,
     );
-    await store.updateSyncState((s) => s.baseCommitSha = 'after');
-    expect((await store.getSyncState()).baseCommitSha, 'after');
+    await store.updateSyncState((s) => s.baseVersionId = 'after');
+    expect((await store.getSyncState()).baseVersionId, 'after');
   });
 
   test('sign-out forgets everything but which phone this is', () async {
@@ -36,12 +36,12 @@ void main() {
     await store.setGithubToken('token');
     await store.setDeviceId('phone-id');
     await store.setDeviceName('Galaxy S23');
-    await store.updateSyncState((s) => s.baseCommitSha = 'base');
+    await store.updateSyncState((s) => s.baseVersionId = 'base');
 
     await store.clearAll();
 
     expect(await store.getGithubToken(), isNull);
-    expect((await store.getSyncState()).baseCommitSha, isNull);
+    expect((await store.getSyncState()).baseVersionId, isNull);
     expect(await store.getDeviceId(), 'phone-id');
     expect(await store.getDeviceName(), 'Galaxy S23');
   });

@@ -59,7 +59,10 @@ class SyncLock {
     }
   }
 
-  static Future<SyncLock?> _tryAcquire(String name, Duration pingTimeout) async {
+  static Future<SyncLock?> _tryAcquire(
+    String name,
+    Duration pingTimeout,
+  ) async {
     final port = ReceivePort();
     port.listen((message) {
       if (message is SendPort) message.send(true);

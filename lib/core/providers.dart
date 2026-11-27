@@ -8,6 +8,7 @@ import 'backup/backup_sync_service.dart';
 import 'device/device_identity.dart';
 import 'friends/friends_repository.dart';
 import 'github/github_api.dart';
+import 'github/github_backup_store.dart';
 import 'platform/xpenc_launcher.dart';
 import 'profile/profile_repository.dart';
 import 'storage/secure_store.dart';
@@ -91,7 +92,10 @@ final deviceNameProvider = FutureProvider<String>((ref) {
 
 final backupSyncServiceProvider = Provider<BackupSyncService>((ref) {
   return BackupSyncService(
-    github: ref.watch(githubApiProvider),
+    backups: GithubBackupStore(
+      ref.watch(githubApiProvider),
+      ref.watch(secureStoreProvider),
+    ),
     folder: ref.watch(backupFolderServiceProvider),
     store: ref.watch(secureStoreProvider),
     device: ref.watch(deviceIdentityProvider),

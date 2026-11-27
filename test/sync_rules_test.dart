@@ -7,7 +7,7 @@ void main() {
 
   RemoteBackup remoteFrom(String? deviceId, DateTime at, {String sha = 'c9'}) {
     return RemoteBackup(
-      commitSha: sha,
+      versionId: sha,
       committedAt: at,
       meta: deviceId == null
           ? null
@@ -66,7 +66,7 @@ void main() {
         isFromElsewhere(
           remoteFrom('other', at),
           thisDeviceId: 'me',
-          baseCommitSha: null,
+          baseVersionId: null,
         ),
         isTrue,
       );
@@ -77,7 +77,7 @@ void main() {
         isFromElsewhere(
           remoteFrom('other', at),
           thisDeviceId: 'me',
-          baseCommitSha: 'c9',
+          baseVersionId: 'c9',
         ),
         isFalse,
       );
@@ -88,7 +88,7 @@ void main() {
         isFromElsewhere(
           remoteFrom('me', at),
           thisDeviceId: 'me',
-          baseCommitSha: null,
+          baseVersionId: null,
         ),
         isFalse,
       );
@@ -99,7 +99,7 @@ void main() {
         isFromElsewhere(
           remoteFrom(null, at),
           thisDeviceId: 'me',
-          baseCommitSha: null,
+          baseVersionId: null,
         ),
         isTrue,
       );
@@ -113,14 +113,14 @@ void main() {
       RemoteBackup? remote, {
       DateTime? localModified,
       DateTime? handledUpTo,
-      String? baseCommitSha,
+      String? baseVersionId,
     }) {
       return uploadVerdict(
         localModified ?? local,
         remote: remote,
         handledUpTo: handledUpTo,
         thisDeviceId: 'me',
-        baseCommitSha: baseCommitSha,
+        baseVersionId: baseVersionId,
       );
     }
 
@@ -172,7 +172,7 @@ void main() {
           remote,
           localModified: now,
           handledUpTo: importedAt,
-          baseCommitSha: 'c9',
+          baseVersionId: 'c9',
         ),
         UploadVerdict.upToDate,
       );
@@ -181,7 +181,7 @@ void main() {
           remote,
           localModified: importedAt.add(const Duration(minutes: 5)),
           handledUpTo: importedAt,
-          baseCommitSha: 'c9',
+          baseVersionId: 'c9',
         ),
         UploadVerdict.upload,
       );
@@ -196,7 +196,7 @@ void main() {
           imported,
           localModified: now,
           handledUpTo: DateTime.utc(2026, 10, 24, 11),
-          baseCommitSha: 'c9',
+          baseVersionId: 'c9',
         ),
         UploadVerdict.upload,
       );
@@ -208,14 +208,14 @@ void main() {
 
     bool pull(
       RemoteBackup remote, {
-      String? baseCommitSha,
-      String? lastPulledCommitSha,
+      String? baseVersionId,
+      String? lastPulledVersionId,
     }) {
       return shouldPull(
         remote,
         thisDeviceId: 'me',
-        baseCommitSha: baseCommitSha,
-        lastPulledCommitSha: lastPulledCommitSha,
+        baseVersionId: baseVersionId,
+        lastPulledVersionId: lastPulledVersionId,
       );
     }
 
@@ -229,15 +229,95 @@ void main() {
 
     test('skips a commit it already pulled', () {
       expect(
-        pull(remoteFrom('other', remoteTime), lastPulledCommitSha: 'c9'),
+        pull(remoteFrom('other', remoteTime), lastPulledVersionId: 'c9'),
         isFalse,
       );
     });
 
     test('skips the commit this phone already imported', () {
       expect(
-        pull(remoteFrom('other', remoteTime), baseCommitSha: 'c9'),
+        pull(remoteFrom('other', remoteTime), baseVersionId: 'c9'),
         isFalse,
+      );
+    });
+  });
+
+  group('a hand-deleted newest backup (baseCommittedAt)', () {
+    final base = now.subtract(const Duration(hours: 1));
+
+    test('an older backup resurfacing is never "from elsewhere"', () {
+      final older = remoteFrom('pixel', base.subtract(const Duration(days: 2)));
+      expect(
+        isFromElsewhere(
+          older,
+          thisDeviceId: 'me',
+          baseVersionId: 'mine',
+          baseCommittedAt: base,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldPull(
+          older,
+          thisDeviceId: 'me',
+          baseVersionId: 'mine',
+          lastPulledVersionId: null,
+          baseCommittedAt: base,
+        ),
+        isFalse,
+      );
+    });
+
+    test('nor is another version from the very same moment', () {
+      expect(
+        isFromElsewhere(
+          remoteFrom('pixel', base, sha: 'other'),
+          thisDeviceId: 'me',
+          baseVersionId: 'mine',
+          baseCommittedAt: base,
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+      "a newer one from another phone still is, and isn't uploaded over",
+      () {
+        final newer = remoteFrom('pixel', base.add(const Duration(minutes: 5)));
+        expect(
+          isFromElsewhere(
+            newer,
+            thisDeviceId: 'me',
+            baseVersionId: 'mine',
+            baseCommittedAt: base,
+          ),
+          isTrue,
+        );
+        expect(
+          uploadVerdict(
+            now,
+            remote: newer,
+            handledUpTo: null,
+            thisDeviceId: 'me',
+            baseVersionId: 'mine',
+            baseCommittedAt: base,
+          ),
+          UploadVerdict.notImported,
+        );
+      },
+    );
+
+    test('the older backup is simply uploaded over', () {
+      expect(
+        uploadVerdict(
+          now,
+          remote: remoteFrom('pixel', base.subtract(const Duration(days: 2))),
+          handledUpTo: base,
+          thisDeviceId: 'me',
+          baseVersionId: 'mine',
+          baseCommittedAt: base,
+        ),
+        UploadVerdict.upload,
       );
     });
   });

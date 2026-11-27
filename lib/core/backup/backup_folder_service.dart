@@ -48,10 +48,11 @@ class BackupFolderService {
   /// null if none exist yet.
   Future<SafDocumentFile?> findLatestBackupFile(String treeUri) async {
     final entries = await _safUtil.list(treeUri);
-    final jsonFiles = entries
-        .where((e) => !e.isDir && _xpencBackupName.hasMatch(e.name))
-        .toList()
-      ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
+    final jsonFiles =
+        entries
+            .where((e) => !e.isDir && _xpencBackupName.hasMatch(e.name))
+            .toList()
+          ..sort((a, b) => b.lastModified.compareTo(a.lastModified));
     return jsonFiles.isEmpty ? null : jsonFiles.first;
   }
 

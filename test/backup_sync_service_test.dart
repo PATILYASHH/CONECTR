@@ -9,6 +9,7 @@ import 'package:conectr/core/backup/git_blob_sha.dart';
 import 'package:conectr/core/config/app_config.dart';
 import 'package:conectr/core/device/device_identity.dart';
 import 'package:conectr/core/github/github_api.dart';
+import 'package:conectr/core/github/github_backup_store.dart';
 import 'package:conectr/core/storage/secure_store.dart';
 import 'package:conectr/core/xpenc/xpenc_inbox.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -36,7 +37,7 @@ void main() {
     folder = _FakeFolder();
     store = SecureStore();
     service = BackupSyncService(
-      github: github,
+      backups: GithubBackupStore(github, store),
       folder: folder,
       store: store,
       device: _FakeDevice('me'),
@@ -59,7 +60,7 @@ void main() {
     expect(folder.content(AppConfig.backupFileName), 'pixel data');
     final pending = (await service.state()).pendingImport!;
 
-    await service.confirmImported(pending.commitSha);
+    await service.confirmImported(pending.versionId);
     expect((await service.state()).pendingImport, isNull);
     // Still the file written before the import.
     expect(await service.upload(manual: true), isA<UploadNotNeeded>());
@@ -93,7 +94,7 @@ void main() {
       final state = await service.state();
       expect(state.pendingImport, isNull);
       expect(state.pendingImportSha, isNull);
-      expect(state.baseCommitSha, pending.commitSha);
+      expect(state.baseVersionId, pending.versionId);
       // Exactly like the button: the pre-import file never goes up.
       expect(await service.upload(manual: true), isA<UploadNotNeeded>());
     });
@@ -132,7 +133,7 @@ void main() {
     expect(github.head, 'this phone\'s data');
     final state = await service.state();
     expect(state.pendingImport, isNull);
-    expect(state.baseCommitSha, github.commits.last.sha);
+    expect(state.baseVersionId, github.commits.last.sha);
     // And it's this phone's to replace from then on.
     folder.xpencBackup(ago(1), 'later');
     expect(await service.upload(), isA<Uploaded>());
@@ -161,9 +162,13 @@ void main() {
     late FileXpencInbox inbox;
 
     String sha(String content) => gitBlobSha(utf8.encode(content));
-    Map<String, dynamic> inboxJson() => jsonDecode(
-      File('${root.path}/xpenc/${FileXpencInbox.inboxFile}').readAsStringSync(),
-    ) as Map<String, dynamic>;
+    Map<String, dynamic> inboxJson() =>
+        jsonDecode(
+              File(
+                '${root.path}/xpenc/${FileXpencInbox.inboxFile}',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
     File pendingFile() =>
         File('${root.path}/xpenc/${FileXpencInbox.pendingFile}');
 
@@ -180,7 +185,7 @@ void main() {
       addTearDown(() => root.deleteSync(recursive: true));
       inbox = FileXpencInbox(() async => root);
       service = BackupSyncService(
-        github: github,
+        backups: GithubBackupStore(github, store),
         folder: folder,
         store: store,
         device: _FakeDevice('me'),
@@ -262,17 +267,19 @@ void main() {
   });
 
   group('a 401 only means "Reconnect GitHub" once GitHub confirms it', () {
-    test('a one-off refusal of a good token is a glitch, not a revoke',
-        () async {
-      github.pushFrom('pixel', ago(120), 'pixel data');
-      github.refuseNext = 1;
-      await expectLater(
-        service.pull(),
-        throwsA(isA<GithubAuthGlitchException>()),
-      );
-      // Next run, all fine.
-      expect(await service.pull(), isA<Pulled>());
-    });
+    test(
+      'a one-off refusal of a good token is a glitch, not a revoke',
+      () async {
+        github.pushFrom('pixel', ago(120), 'pixel data');
+        github.refuseNext = 1;
+        await expectLater(
+          service.pull(),
+          throwsA(isA<GithubAuthGlitchException>()),
+        );
+        // Next run, all fine.
+        expect(await service.pull(), isA<Pulled>());
+      },
+    );
 
     test('a token replaced mid-run is retried with the new one', () async {
       github.pushFrom('pixel', ago(120), 'pixel data');
@@ -293,8 +300,7 @@ void main() {
       );
     });
 
-    test('opening the app clears a "reconnect" that no longer holds',
-        () async {
+    test('opening the app clears a "reconnect" that no longer holds', () async {
       await store.updateSyncState((s) {
         s.problem = 'GitHub access was revoked or has expired.';
         s.problemNeedsReconnect = true;
@@ -432,7 +438,7 @@ class _FakeGithub implements GithubApi {
   }
 
   @override
-  Future<String> putFile(
+  Future<GithubCommit> putFile(
     String token,
     String owner,
     String repo,
@@ -446,7 +452,9 @@ class _FakeGithub implements GithubApi {
     if (existingSha != (current == null ? null : gitBlobSha(current.bytes))) {
       throw GithubConflictException(409, 'does not match');
     }
-    return _commit(commitMessage, contentBytes);
+    final sha = _commit(commitMessage, contentBytes);
+    final c = _at(sha)!;
+    return GithubCommit(sha: c.sha, message: c.message, date: c.date);
   }
 }
 

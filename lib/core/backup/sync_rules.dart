@@ -37,16 +37,27 @@ bool isPullCheckDue(DateTime? lastCheckAt, DateTime now) {
   return lastCheckAt == null || now.difference(lastCheckAt) >= _pullCheckEvery;
 }
 
-/// GitHub's backup holds data this phone doesn't have: another phone (or
-/// github.com) made it, and this phone hasn't imported it. [baseCommitSha]
-/// is the commit this phone's data is known to be built on — its own last
+/// The cloud's backup holds data this phone doesn't have: another phone (or
+/// a hand edit) made it, and this phone hasn't imported it. [baseVersionId]
+/// is the version this phone's data is known to be built on — its own last
 /// upload, or the one it last confirmed importing.
+///
+/// [baseCommittedAt] is that version's server time. A remote no newer than
+/// it is an *older* backup become latest again — the newest one deleted by
+/// hand in Drive, or force-pushed away on GitHub. Pulling it would hand
+/// XPENC old data that its "no local changes" check could take in by
+/// itself, so it never counts. Server times only: phones' clocks are still
+/// never compared.
 bool isFromElsewhere(
   RemoteBackup remote, {
   required String thisDeviceId,
-  required String? baseCommitSha,
+  required String? baseVersionId,
+  DateTime? baseCommittedAt,
 }) {
-  if (remote.commitSha == baseCommitSha) return false;
+  if (remote.versionId == baseVersionId) return false;
+  if (baseCommittedAt != null && !remote.committedAt.isAfter(baseCommittedAt)) {
+    return false;
+  }
   return remote.deviceId != thisDeviceId;
 }
 
@@ -68,14 +79,16 @@ UploadVerdict uploadVerdict(
   required RemoteBackup? remote,
   required DateTime? handledUpTo,
   required String thisDeviceId,
-  required String? baseCommitSha,
+  required String? baseVersionId,
+  DateTime? baseCommittedAt,
 }) {
   // Nothing to lose — even a backup written before an import beats none.
   if (remote == null) return UploadVerdict.upload;
   if (isFromElsewhere(
     remote,
     thisDeviceId: thisDeviceId,
-    baseCommitSha: baseCommitSha,
+    baseVersionId: baseVersionId,
+    baseCommittedAt: baseCommittedAt,
   )) {
     return UploadVerdict.notImported;
   }
@@ -97,13 +110,15 @@ UploadVerdict uploadVerdict(
 bool shouldPull(
   RemoteBackup remote, {
   required String thisDeviceId,
-  required String? baseCommitSha,
-  required String? lastPulledCommitSha,
+  required String? baseVersionId,
+  required String? lastPulledVersionId,
+  DateTime? baseCommittedAt,
 }) {
-  if (remote.commitSha == lastPulledCommitSha) return false;
+  if (remote.versionId == lastPulledVersionId) return false;
   return isFromElsewhere(
     remote,
     thisDeviceId: thisDeviceId,
-    baseCommitSha: baseCommitSha,
+    baseVersionId: baseVersionId,
+    baseCommittedAt: baseCommittedAt,
   );
 }

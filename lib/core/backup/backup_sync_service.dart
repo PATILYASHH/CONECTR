@@ -2,30 +2,26 @@ import 'package:saf_util/saf_util_platform_interface.dart' show SafDocumentFile;
 
 import '../config/app_config.dart';
 import '../device/device_identity.dart';
-import '../github/github_api.dart';
 import '../storage/secure_store.dart';
 import '../xpenc/xpenc_inbox.dart';
 import 'backup_folder_service.dart';
 import 'backup_meta.dart';
+import 'backup_store.dart';
 import 'git_blob_sha.dart';
+import 'sync_errors.dart';
 import 'sync_rules.dart';
 import 'sync_state.dart';
 
-/// Thrown for problems the UI should show as plain text, as opposed to a
-/// bug — not signed in to GitHub, no folder chosen.
-class SyncSetupException implements Exception {
-  SyncSetupException(this.message);
-  final String message;
-}
+export 'sync_errors.dart';
 
 sealed class UploadResult {}
 
 class Uploaded extends UploadResult {}
 
-/// Nothing new since the last upload, or identical to GitHub's copy.
+/// Nothing new since the last upload, or identical to the cloud's copy.
 class UploadNotNeeded extends UploadResult {}
 
-/// GitHub's backup came from another phone and this one hasn't imported it
+/// The cloud's backup came from another phone and this one hasn't imported it
 /// — uploading would replace that phone's data with this one's.
 class RemoteNotImported extends UploadResult {
   RemoteNotImported(this.remote);
@@ -54,10 +50,11 @@ enum ImportHandoff {
   nothingPending,
 }
 
-class NothingOnGithub extends PullResult {}
+class NothingRemote extends PullResult {}
 
-/// One round trip between XPENC's shared backup folder and the user's
-/// `XPENC-BACKUP` repo, shared by the app's buttons and the background job
+/// One round trip between XPENC's shared backup folder and the account's
+/// backup destination ([BackupStore]: GitHub, Google Drive or ExoCloud),
+/// shared by the app's buttons and the background job
 /// (which has no Riverpod, hence plain constructor injection). Connector
 /// never reads XPENC's private database — it only moves the JSON file XPENC
 /// itself already knows how to export and import.
@@ -68,14 +65,14 @@ class NothingOnGithub extends PullResult {}
 /// never sync at once.
 class BackupSyncService {
   BackupSyncService({
-    required this._github,
+    required this._backups,
     required this._folder,
     required this._store,
     required this._device,
     this._inbox,
   });
 
-  final GithubApi _github;
+  final BackupStore _backups;
   final BackupFolderService _folder;
   final SecureStore _store;
   final DeviceIdentity _device;
@@ -84,14 +81,14 @@ class BackupSyncService {
   /// that don't care.
   final XpencInbox? _inbox;
 
-  static const _repo = AppConfig.backupRepoName;
-  static const _path = AppConfig.backupFileName;
+  /// Where this service's backups go.
+  BackupStore get backups => _backups;
 
-  /// Both a GitHub token and a folder — without them there's nothing for
-  /// auto-sync to do, and that isn't an error worth reporting.
+  /// Connected to the destination and a folder chosen — without them
+  /// there's nothing for auto-sync to do, and that isn't an error worth
+  /// reporting.
   Future<bool> isSetUp() async =>
-      await _store.getGithubToken() != null &&
-      await _store.getBackupFolderUri() != null;
+      await _backups.isConnected() && await _store.getBackupFolderUri() != null;
 
   /// The newest file XPENC has written to the folder, or null.
   Future<SafDocumentFile?> newestLocalBackup() async {
@@ -104,15 +101,15 @@ class BackupSyncService {
       DateTime.fromMillisecondsSinceEpoch(file.lastModified, isUtc: true);
 
   /// Uploads this phone's newest XPENC backup if [uploadVerdict] allows it
-  /// and it actually differs from GitHub's.
+  /// and it actually differs from the cloud's.
   ///
-  /// [manual] skips the folder-only shortcut, so a tap always re-asks
-  /// GitHub. [overwriteNewer] uploads even over another phone's backup —
+  /// [manual] skips the folder-only shortcut, so a tap always re-asks the
+  /// cloud. [overwriteNewer] uploads even over another phone's backup —
   /// only after the user has confirmed [RemoteNotImported].
   Future<UploadResult> upload({
     bool manual = false,
     bool overwriteNewer = false,
-  }) => _confirmingAuth(
+  }) => _backups.guard(
     () => _upload(manual: manual, overwriteNewer: overwriteNewer),
   );
 
@@ -121,8 +118,8 @@ class BackupSyncService {
     required bool overwriteNewer,
   }) async {
     await applyXpencImport();
-    final ctx = await _context();
-    final local = await _folder.findLatestBackupFile(ctx.folderUri);
+    final folderUri = await _folderUri();
+    final local = await _folder.findLatestBackupFile(folderUri);
     if (local == null) return NoLocalBackup();
     final localModified = modifiedAt(local);
 
@@ -132,15 +129,16 @@ class BackupSyncService {
       return UploadNotNeeded();
     }
 
-    await _ensureRepoReady(ctx);
-    final remote = await _latestRemote(ctx);
+    await _backups.ensureReady();
+    final remote = await _backups.latest();
     if (!overwriteNewer) {
       final verdict = uploadVerdict(
         localModified,
         remote: remote,
         handledUpTo: handled,
         thisDeviceId: await _device.id(),
-        baseCommitSha: state.baseCommitSha,
+        baseVersionId: state.baseVersionId,
+        baseCommittedAt: state.baseCommittedAt,
       );
       if (verdict != UploadVerdict.upload) {
         await _store.updateSyncState((s) {
@@ -148,7 +146,7 @@ class BackupSyncService {
           s.remote = remote;
           // Settled until XPENC writes something newer — or, if blocked,
           // until the user imports or overrides. Either way, no need for
-          // auto-sync to keep asking GitHub about this file.
+          // auto-sync to keep asking the cloud about this file.
           if (handled == null || localModified.isAfter(handled)) {
             s.lastHandledLocalModified = localModified;
           }
@@ -160,24 +158,16 @@ class BackupSyncService {
     }
 
     final bytes = await _folder.readFile(local.uri);
-    // The file as of the commit just checked, not as of now: if another
-    // phone pushed since, GitHub refuses the write instead of letting it
-    // replace a backup that nobody looked at.
     final checkedSha = remote == null
         ? null
-        : await _github.getFileSha(
-            ctx.token,
-            ctx.owner,
-            _repo,
-            _path,
-            ref: remote.commitSha,
-          );
+        : await _backups.contentShaOf(remote);
     if (checkedSha != null && checkedSha == gitBlobSha(bytes)) {
       await _store.updateSyncState((s) {
         s.lastHandledLocalModified = localModified;
         s.lastCheckAt = DateTime.now().toUtc();
         s.remote = remote;
-        s.baseCommitSha = remote!.commitSha;
+        s.baseVersionId = remote!.versionId;
+        s.baseCommittedAt = remote.committedAt;
         s.baseFileSha = checkedSha;
       });
       await _publish();
@@ -190,28 +180,20 @@ class BackupSyncService {
       backupModifiedAt: localModified,
       sourceFileName: local.name,
     );
-    final commitSha = await _github.putFile(
-      ctx.token,
-      ctx.owner,
-      _repo,
-      _path,
-      contentBytes: bytes,
-      commitMessage: meta.toCommitMessage(),
-      existingSha: checkedSha,
-    );
+    // Replacing exactly the version just checked: if another phone
+    // uploaded since, the store refuses instead of letting this replace a
+    // backup that nobody looked at.
+    final uploaded = await _backups.upload(bytes, meta, replacing: remote);
     final now = DateTime.now().toUtc();
     await _store.updateSyncState((s) {
       s.lastUploadAt = now;
       s.lastHandledLocalModified = localModified;
       s.lastCheckAt = now;
-      s.remote = RemoteBackup(
-        commitSha: commitSha,
-        committedAt: now,
-        meta: meta,
-      );
-      s.baseCommitSha = commitSha;
+      s.remote = uploaded;
+      s.baseVersionId = uploaded.versionId;
+      s.baseCommittedAt = uploaded.committedAt;
       s.baseFileSha = gitBlobSha(bytes);
-      // Whatever was pulled is no longer GitHub's latest — this is.
+      // Whatever was pulled is no longer the cloud's latest — this is.
       s.clearPendingImport();
       s.clearProblem();
     });
@@ -219,7 +201,7 @@ class BackupSyncService {
     return Uploaded();
   }
 
-  /// The user says they've imported [commitSha]'s backup into XPENC. From
+  /// The user says they've imported [versionId]'s backup into XPENC. From
   /// now on this phone's data is built on it, so uploads may replace it —
   /// but only with backups XPENC writes from here on: anything already in
   /// the folder was made before the import, from the old data. (XPENC's
@@ -227,15 +209,22 @@ class BackupSyncService {
   ///
   /// [at]: when the import happened, if it's known to be earlier than now —
   /// XPENC's own report, read later; backups it wrote since hold new data.
-  Future<void> confirmImported(String commitSha, {DateTime? at}) async {
+  Future<void> confirmImported(String versionId, {DateTime? at}) async {
     final when = (at ?? DateTime.now()).toUtc();
     await _store.updateSyncState((s) {
-      s.baseCommitSha = commitSha;
+      s.baseVersionId = versionId;
+      // The server time of what's now the base, when it's known here.
+      final base = s.pendingImport?.versionId == versionId
+          ? s.pendingImport
+          : s.remote?.versionId == versionId
+          ? s.remote
+          : null;
+      s.baseCommittedAt = base?.committedAt;
       final handled = s.lastHandledLocalModified;
       if (handled == null || when.isAfter(handled)) {
         s.lastHandledLocalModified = when;
       }
-      if (s.pendingImport?.commitSha == commitSha) {
+      if (s.pendingImport?.versionId == versionId) {
         s.baseFileSha = s.pendingImportSha;
         s.clearPendingImport();
       }
@@ -252,7 +241,7 @@ class BackupSyncService {
     final state = await _store.getSyncState();
     final pending = state.pendingImport;
     if (pending == null || state.pendingImportSha != report.sha) return;
-    await confirmImported(pending.commitSha, at: report.at);
+    await confirmImported(pending.versionId, at: report.at);
   }
 
   /// XPENC's "Tell Connector" (`conectr://imported?sha=…`, see
@@ -264,24 +253,24 @@ class BackupSyncService {
     final pending = state.pendingImport;
     if (pending == null) return ImportHandoff.nothingPending;
     if (state.pendingImportSha != sha) return ImportHandoff.differentFile;
-    await confirmImported(pending.commitSha);
+    await confirmImported(pending.versionId);
     return ImportHandoff.confirmed;
   }
 
-  /// Saves GitHub's backup into the folder as [AppConfig.backupFileName]
+  /// Saves the cloud's backup into the folder as [AppConfig.backupFileName]
   /// if [shouldPull] says it's worth it — or always, with [force] (the
   /// "Pull latest" button). Never imports it: only XPENC can, by hand.
   Future<PullResult> pull({bool force = false}) =>
-      _confirmingAuth(() => _pull(force: force));
+      _backups.guard(() => _pull(force: force));
 
   Future<PullResult> _pull({required bool force}) async {
     await applyXpencImport();
-    final ctx = await _context();
-    final remote = await _latestRemote(ctx);
+    final folderUri = await _folderUri();
+    final remote = await _backups.latest();
     final now = DateTime.now().toUtc();
     if (remote == null) {
       await _store.updateSyncState((s) => s.lastCheckAt = now);
-      return NothingOnGithub();
+      return NothingRemote();
     }
 
     final state = await _store.getSyncState();
@@ -289,8 +278,9 @@ class BackupSyncService {
       final pull = shouldPull(
         remote,
         thisDeviceId: await _device.id(),
-        baseCommitSha: state.baseCommitSha,
-        lastPulledCommitSha: state.lastPulledCommitSha,
+        baseVersionId: state.baseVersionId,
+        lastPulledVersionId: state.lastPulledVersionId,
+        baseCommittedAt: state.baseCommittedAt,
       );
       if (!pull) {
         await _store.updateSyncState((s) {
@@ -302,69 +292,39 @@ class BackupSyncService {
       }
     }
 
-    // Exactly the commit recorded below, even if another phone pushed
-    // since — confirming the import later vouches for this commit's data.
-    final file = await _github.getFile(
-      ctx.token,
-      ctx.owner,
-      _repo,
-      _path,
-      ref: remote.commitSha,
-    );
-    if (file == null) return NothingOnGithub();
+    // Exactly the version recorded below, even if another phone uploaded
+    // since — confirming the import later vouches for this version's data.
+    final bytes = await _backups.download(remote);
+    if (bytes == null) return NothingRemote();
     await _folder.writeRestoredBackup(
-      ctx.folderUri,
+      folderUri,
       AppConfig.backupFileName,
-      file.contentBytes,
+      bytes,
     );
     await _store.updateSyncState((s) {
       s.lastCheckAt = now;
       s.lastPullAt = now;
-      s.lastPulledCommitSha = remote.commitSha;
+      s.lastPulledVersionId = remote.versionId;
       s.remote = remote;
       s.pendingImport = remote;
-      s.pendingImportSha = gitBlobSha(file.contentBytes);
+      s.pendingImportSha = gitBlobSha(bytes);
       s.clearProblem();
     });
-    await _publish(pendingBytes: file.contentBytes);
+    await _publish(pendingBytes: bytes);
     return Pulled(remote);
   }
 
   Future<SyncState> state() => _store.getSyncState();
 
-  /// GitHub answered 401. Before that becomes "Reconnect GitHub" — a red
-  /// card, a notification, auto-sync paused — make sure it's true:
-  ///
-  /// * the token may have been replaced since this run read it (connected
-  ///   again in the app while the background job ran): try once more with
-  ///   the new one;
-  /// * GitHub may refuse one request yet, asked straight after, accept the
-  ///   token (`GET /user`): nothing to reconnect, try again next run.
-  ///
-  /// Only a token GitHub itself calls bad gets through as the 401.
-  Future<T> _confirmingAuth<T>(Future<T> Function() attempt) async {
-    final used = await _store.getGithubToken();
-    try {
-      return await attempt();
-    } on GithubApiException catch (e) {
-      if (e.statusCode != 401 || used == null) rethrow;
-      final current = await _store.getGithubToken();
-      if (current != null && current != used) return attempt();
-      if (await _github.tokenWorks(used)) throw GithubAuthGlitchException();
-      rethrow;
-    }
-  }
-
-  /// A "Reconnect GitHub" problem recorded earlier — usually by the
-  /// background job — asked about again, in one request and without
-  /// waiting for a sync slot: that wait (up to half a minute, behind a
-  /// background run) is what kept a problem that was already gone on
-  /// screen. Clears it if GitHub accepts the token after all. Throws if
-  /// GitHub can't be reached.
+  /// A "Reconnect" problem recorded earlier — usually by the background
+  /// job — asked about again, in one request and without waiting for a
+  /// sync slot: that wait (up to half a minute, behind a background run)
+  /// is what kept a problem that was already gone on screen. Clears it if
+  /// the destination accepts this phone after all. Throws if it can't be
+  /// reached.
   Future<void> recheckAccess() async {
     if (!(await _store.getSyncState()).problemNeedsReconnect) return;
-    final token = await _store.getGithubToken();
-    if (token == null || !await _github.tokenWorks(token)) return;
+    if (await _backups.accessWorks() != true) return;
     await _store.updateSyncState((s) {
       if (s.problemNeedsReconnect) s.clearProblem();
     });
@@ -383,26 +343,7 @@ class BackupSyncService {
     } catch (_) {}
   }
 
-  Future<RemoteBackup?> _latestRemote(_SyncContext ctx) async {
-    final commit = await _github.getLatestCommit(
-      ctx.token,
-      ctx.owner,
-      _repo,
-      _path,
-    );
-    if (commit == null) return null;
-    return RemoteBackup(
-      commitSha: commit.sha,
-      committedAt: commit.date.toUtc(),
-      meta: BackupMeta.parse(commit.message),
-    );
-  }
-
-  Future<_SyncContext> _context() async {
-    final token = await _store.getGithubToken();
-    if (token == null) {
-      throw SyncSetupException('GitHub isn\'t connected yet.');
-    }
+  Future<String> _folderUri() async {
     final folderUri = await _store.getBackupFolderUri();
     if (folderUri == null) {
       throw SyncSetupException(
@@ -410,29 +351,6 @@ class BackupSyncService {
         '"Download/BACKUP XPENC" folder first.',
       );
     }
-    var owner = await _store.getGithubLogin();
-    if (owner == null) {
-      owner = await _github.getAuthenticatedLogin(token);
-      await _store.setGithubLogin(owner);
-    }
-    return _SyncContext(token: token, folderUri: folderUri, owner: owner);
+    return folderUri;
   }
-
-  Future<void> _ensureRepoReady(_SyncContext ctx) async {
-    if (!await _github.repoExists(ctx.token, ctx.owner, _repo)) {
-      await _github.createPrivateRepo(ctx.token, _repo);
-    }
-  }
-}
-
-class _SyncContext {
-  _SyncContext({
-    required this.token,
-    required this.folderUri,
-    required this.owner,
-  });
-
-  final String token;
-  final String folderUri;
-  final String owner;
 }

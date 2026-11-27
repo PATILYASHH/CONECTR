@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../backup/backup_store.dart';
+
 class GithubApiException implements Exception {
   GithubApiException(this.statusCode, this.message);
 
@@ -15,7 +17,8 @@ class GithubApiException implements Exception {
 
 /// A write refused because the file changed since it was last looked at —
 /// another phone uploaded in between.
-class GithubConflictException extends GithubApiException {
+class GithubConflictException extends GithubApiException
+    implements BackupConflictException {
   GithubConflictException(super.statusCode, super.message);
 }
 
@@ -117,8 +120,9 @@ class GithubApi {
     String path, {
     String? ref,
   }) async {
-    final uri = Uri.parse('$_baseUrl/repos/$owner/$repo/contents/$path')
-        .replace(queryParameters: ref == null ? null : {'ref': ref});
+    final uri = Uri.parse(
+      '$_baseUrl/repos/$owner/$repo/contents/$path',
+    ).replace(queryParameters: ref == null ? null : {'ref': ref});
     final res = await http.get(
       uri,
       headers: {
@@ -156,8 +160,9 @@ class GithubApi {
     required String ref,
   }) async {
     final res = await http.get(
-      Uri.parse('$_baseUrl/repos/$owner/$repo/contents/$path')
-          .replace(queryParameters: {'ref': ref}),
+      Uri.parse(
+        '$_baseUrl/repos/$owner/$repo/contents/$path',
+      ).replace(queryParameters: {'ref': ref}),
       headers: {
         ..._headers(token),
         'Accept': 'application/vnd.github.object+json',
@@ -179,8 +184,9 @@ class GithubApi {
     String path,
   ) async {
     final res = await http.get(
-      Uri.parse('$_baseUrl/repos/$owner/$repo/commits')
-          .replace(queryParameters: {'path': path, 'per_page': '1'}),
+      Uri.parse(
+        '$_baseUrl/repos/$owner/$repo/commits',
+      ).replace(queryParameters: {'path': path, 'per_page': '1'}),
       headers: _headers(token),
     );
     if (res.statusCode == 404 || res.statusCode == 409) return null;
@@ -198,10 +204,10 @@ class GithubApi {
   }
 
   /// Creates or updates [path] in [owner]/[repo] and returns the new
-  /// commit's sha. [existingSha] is the blob being replaced (null to
+  /// commit — its sha and GitHub's own time for it. [existingSha] is the blob being replaced (null to
   /// create): GitHub only writes if the file is still exactly that, and
   /// otherwise this throws [GithubConflictException].
-  Future<String> putFile(
+  Future<GithubCommit> putFile(
     String token,
     String owner,
     String repo,
@@ -231,7 +237,13 @@ class GithubApi {
       rethrow;
     }
     final json = jsonDecode(res.body) as Map<String, dynamic>;
-    return (json['commit'] as Map<String, dynamic>)['sha'] as String;
+    final commit = json['commit'] as Map<String, dynamic>;
+    final committer = commit['committer'] as Map<String, dynamic>;
+    return GithubCommit(
+      sha: commit['sha'] as String,
+      message: commit['message'] as String? ?? commitMessage,
+      date: DateTime.parse(committer['date'] as String),
+    );
   }
 
   void _throwIfError(http.Response res) {

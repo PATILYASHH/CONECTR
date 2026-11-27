@@ -11,6 +11,7 @@ import '../backup/sync_rules.dart';
 import '../backup/sync_state.dart';
 import '../device/device_identity.dart';
 import '../github/github_api.dart';
+import '../github/github_backup_store.dart';
 import '../notifications/app_notifications.dart';
 import '../shared/shared_sync.dart';
 import '../storage/secure_store.dart';
@@ -38,7 +39,7 @@ void autoSyncDispatcher() {
     final store = SecureStore();
     await AutoSyncRunner(
       BackupSyncService(
-        github: GithubApi(),
+        backups: GithubBackupStore(GithubApi(), store),
         folder: BackupFolderService(),
         store: store,
         device: DeviceIdentity(store),

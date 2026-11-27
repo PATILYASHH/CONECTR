@@ -79,15 +79,16 @@ class BackupMeta {
   }
 }
 
-/// The newest commit touching the backup file on GitHub.
+/// One stored backup version: a commit on GitHub, a file in Drive, a row
+/// in ExoCloud. [committedAt] is always the *server's* time.
 class RemoteBackup {
   const RemoteBackup({
-    required this.commitSha,
+    required this.versionId,
     required this.committedAt,
     this.meta,
   });
 
-  final String commitSha;
+  final String versionId;
   final DateTime committedAt;
 
   /// Null for an old-style commit; see [BackupMeta.parse].
@@ -98,13 +99,14 @@ class RemoteBackup {
   String? get deviceName => meta?.deviceName;
 
   Map<String, dynamic> toJson() => {
-    'commitSha': commitSha,
+    'versionId': versionId,
     'committedAt': committedAt.toIso8601String(),
     'meta': meta?.toJson(),
   };
 
   factory RemoteBackup.fromJson(Map<String, dynamic> json) => RemoteBackup(
-    commitSha: json['commitSha'] as String,
+    // Saved before 1.4 as `commitSha`.
+    versionId: (json['versionId'] ?? json['commitSha']) as String,
     committedAt: DateTime.parse(json['committedAt'] as String),
     meta: json['meta'] == null
         ? null

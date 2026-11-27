@@ -98,7 +98,8 @@ class FileXpencInbox implements XpencInbox {
           ? null
           : {
               'sha': state.pendingImportSha,
-              'commitSha': pending.commitSha,
+              // XPENC's contract keeps the GitHub-era key name.
+              'commitSha': pending.versionId,
               'deviceName': pending.deviceName,
               'backupModifiedAt': pending.backupModifiedAt
                   .toUtc()

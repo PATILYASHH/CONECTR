@@ -180,7 +180,7 @@ Future<void> _pull(BuildContext context, WidgetRef ref) {
         .pullLatest();
     return switch (result) {
       Pulled() => 'Saved to the folder as ${AppConfig.backupFileName}.',
-      NothingOnGithub() => 'Nothing on GitHub yet.',
+      NothingRemote() => 'Nothing on GitHub yet.',
       PullNotNeeded() => 'Already up to date.',
     };
   });

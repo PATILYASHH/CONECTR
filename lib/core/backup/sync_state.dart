@@ -21,14 +21,20 @@ class SyncState {
   DateTime? lastCheckAt;
 
   DateTime? lastPullAt;
-  String? lastPulledCommitSha;
+  String? lastPulledVersionId;
 
-  /// The commit this phone's XPENC data is built on: its own last upload,
-  /// or the pulled backup the user confirmed importing. Uploads only ever
-  /// replace this one (see `isFromElsewhere`).
-  String? baseCommitSha;
+  /// The version this phone's XPENC data is built on: its own last upload,
+  /// or the pulled backup the user confirmed importing (a GitHub commit sha,
+  /// a Drive file id, an ExoCloud backup id). Uploads only ever replace this
+  /// one (see `isFromElsewhere`).
+  String? baseVersionId;
 
-  /// The newest backup on GitHub, as last seen.
+  /// The server's time for [baseVersionId]. A remote backup no newer than
+  /// this is an older one resurfacing — the newest deleted by hand — never
+  /// new data from another phone. Null until the next upload or import.
+  DateTime? baseCommittedAt;
+
+  /// The newest backup in the cloud, as last seen.
   RemoteBackup? remote;
 
   /// A pulled backup sitting in the folder that the user hasn't confirmed
@@ -41,7 +47,7 @@ class SyncState {
   /// `BackupSyncService.confirmImportedFile`).
   String? pendingImportSha;
 
-  /// The git blob sha of the file [baseCommitSha] holds — the backup this
+  /// The git blob sha of the file [baseVersionId] holds — the backup this
   /// phone uploaded, or the pulled one XPENC imported. XPENC matches it
   /// against its own data to know whether taking in a newer backup could
   /// lose anything (see `XpencInbox`). Null until the next upload or import.
@@ -68,8 +74,9 @@ class SyncState {
     'lastPullCheckAt': lastPullCheckAt?.toIso8601String(),
     'lastCheckAt': lastCheckAt?.toIso8601String(),
     'lastPullAt': lastPullAt?.toIso8601String(),
-    'lastPulledCommitSha': lastPulledCommitSha,
-    'baseCommitSha': baseCommitSha,
+    'lastPulledVersionId': lastPulledVersionId,
+    'baseVersionId': baseVersionId,
+    'baseCommittedAt': baseCommittedAt?.toIso8601String(),
     'remote': remote?.toJson(),
     'pendingImport': pendingImport?.toJson(),
     'pendingImportSha': pendingImportSha,
@@ -91,8 +98,13 @@ class SyncState {
       ..lastPullCheckAt = time('lastPullCheckAt')
       ..lastCheckAt = time('lastCheckAt')
       ..lastPullAt = time('lastPullAt')
-      ..lastPulledCommitSha = json['lastPulledCommitSha'] as String?
-      ..baseCommitSha = json['baseCommitSha'] as String?
+      // Saved before 1.4 under the GitHub-era names.
+      ..lastPulledVersionId =
+          (json['lastPulledVersionId'] ?? json['lastPulledCommitSha'])
+              as String?
+      ..baseVersionId =
+          (json['baseVersionId'] ?? json['baseCommitSha']) as String?
+      ..baseCommittedAt = time('baseCommittedAt')
       ..remote = backup('remote')
       ..pendingImport = backup('pendingImport')
       ..pendingImportSha = json['pendingImportSha'] as String?

@@ -1,4 +1,5 @@
 import 'package:conectr/core/backup/backup_meta.dart';
+import 'package:conectr/core/backup/sync_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -63,7 +64,7 @@ void main() {
 
     test('uses the backup time from the metadata when present', () {
       final remote = RemoteBackup(
-        commitSha: 'c1',
+        versionId: 'c1',
         committedAt: committedAt,
         meta: meta,
       );
@@ -71,9 +72,39 @@ void main() {
     });
 
     test('falls back to the commit time for an old-style commit', () {
-      final remote = RemoteBackup(commitSha: 'c1', committedAt: committedAt);
+      final remote = RemoteBackup(versionId: 'c1', committedAt: committedAt);
       expect(remote.backupModifiedAt, committedAt);
       expect(remote.deviceId, isNull);
+    });
+  });
+
+  group('saved before 1.4 (GitHub-era names)', () {
+    test('RemoteBackup reads commitSha as its version id', () {
+      final remote = RemoteBackup.fromJson({
+        'commitSha': 'c1',
+        'committedAt': '2026-10-24T12:00:00.000Z',
+        'meta': null,
+      });
+      expect(remote.versionId, 'c1');
+      expect(remote.toJson()['versionId'], 'c1');
+    });
+
+    test('SyncState reads the old base and pulled names', () {
+      final state = SyncState.fromJson({
+        'baseCommitSha': 'base',
+        'lastPulledCommitSha': 'pulled',
+      });
+      expect(state.baseVersionId, 'base');
+      expect(state.lastPulledVersionId, 'pulled');
+      expect(state.baseCommittedAt, isNull);
+    });
+
+    test('SyncState keeps baseCommittedAt', () {
+      final at = DateTime.utc(2026, 11, 1, 9);
+      final state = SyncState()
+        ..baseVersionId = 'v'
+        ..baseCommittedAt = at;
+      expect(SyncState.fromJson(state.toJson()).baseCommittedAt, at);
     });
   });
 }

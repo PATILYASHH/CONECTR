@@ -49,7 +49,8 @@ class BackupView {
     return isFromElsewhere(
       remote,
       thisDeviceId: deviceId,
-      baseCommitSha: sync.baseCommitSha,
+      baseVersionId: sync.baseVersionId,
+      baseCommittedAt: sync.baseCommittedAt,
     );
   }
 
@@ -162,7 +163,7 @@ class BackupController extends Notifier<BackupView> {
         (RemoteNotImported(:final remote), _) =>
           'Import the backup from ${remote.deviceName ?? 'another phone'} '
               'first. Uploads from this phone wait until you do.',
-        (NoLocalBackup(), NothingOnGithub()) =>
+        (NoLocalBackup(), NothingRemote()) =>
           'Nothing to sync yet. Make a backup in XPENC first.',
         _ => 'Everything is up to date.',
       };
@@ -189,7 +190,7 @@ class BackupController extends Notifier<BackupView> {
   Future<void> confirmImported(RemoteBackup backup) async {
     try {
       await SyncLock.run(
-        () => _service.confirmImported(backup.commitSha),
+        () => _service.confirmImported(backup.versionId),
         wait: _lockWait,
       );
     } finally {
