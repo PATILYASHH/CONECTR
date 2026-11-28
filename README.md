@@ -90,6 +90,7 @@ Every release ships `SHA256SUMS.txt` to verify the download.
   database.
 - Drive and GitHub backups are plain JSON in your own account; encrypting
   those too is [on the list](docs/ARCHITECTURE.md#not-built-yet).
+- Full details: [Privacy Policy](PRIVACY.md).
 - Found a vulnerability? Please follow [SECURITY.md](SECURITY.md) rather than
   opening a public issue.
 
