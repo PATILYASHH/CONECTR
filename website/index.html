@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CONECTR — the online companion for offline-first apps</title>
+  <meta name="description" content="Your apps stay offline. CONECTR backs them up to Google Drive, end-to-end encrypted ExoCloud, or GitHub, and keeps every phone in sync. Free and open source, by ExoSynk Labs.">
+  <meta name="theme-color" content="#f2f2f2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" type="image/png" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <link rel="canonical" href="https://conectr.exosynk.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CONECTR — the online companion for offline-first apps">
+  <meta property="og:description" content="Backup and sync for offline apps — to Google Drive, encrypted ExoCloud, or GitHub. By ExoSynk Labs.">
+  <meta property="og:url" content="https://conectr.exosynk.com/">
+  <meta property="og:image" content="https://conectr.exosynk.com/assets/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CONECTR home">
+      <img class="logo" src="/assets/logo.png" alt="">
+      CONECTR
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#destinations">Backups</a>
+      <a href="#security">Security</a>
+      <a href="#tech">Technology</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="btn btn-primary btn-small js-download" href="https://github.com/PATILYASHH/CONECTR/releases/latest">Download</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="logo-big" src="/assets/logo.png" alt="CONECTR logo">
+    <div class="eyebrow">Android · Free &amp; open source</div>
+    <h1>The online companion for offline&#8209;first apps.</h1>
+    <p class="lede">Your apps stay offline. CONECTR backs them up — to your Google Drive, end-to-end encrypted ExoCloud, or GitHub — and keeps every phone in sync.</p>
+    <div class="cta">
+      <a class="btn btn-primary js-download" href="https://github.com/PATILYASHH/CONECTR/releases/latest">Download for Android</a>
+      <a class="btn btn-ghost" href="https://github.com/PATILYASHH/CONECTR">View source</a>
+    </div>
+    <p class="fine"><span class="js-version">Latest release</span> · signed APK · no ads, no tracking</p>
+
+    <div class="flow" aria-label="How data flows">
+      <div class="flow-node"><b>XPENC</b><span>fully offline — writes its own backup file</span></div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node center"><b>CONECTR</b><span>moves that file, and only that file</span></div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-node"><b>Your choice</b><span>Google Drive · ExoCloud · GitHub</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section id="why">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Why CONECTR</div>
+      <h2>Offline apps you can trust, without losing your data.</h2>
+      <p>ExoSynk Labs' apps never ask for internet access. That keeps your data on your phone — and leaves it there when your phone is lost, reset or replaced. CONECTR is the separate, optional app that solves that, so the apps themselves never have to go online.</p>
+    </div>
+    <div class="grid g3">
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M9 18h6"/></svg></div>
+        <h3>The app stays offline</h3>
+        <p>XPENC has no internet permission and never will. CONECTR is a different app that does the online part for it.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+        <h3>Only the backup file</h3>
+        <p>CONECTR reads and writes the backup XPENC exports to a shared folder. It never opens the app's own database.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+        <h3>Every phone in sync</h3>
+        <p>Back up on one phone, and your other phones pull it down. XPENC takes it in by itself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">How it works</div>
+      <h2>Set up once. Then forget about it.</h2>
+    </div>
+    <div class="grid g4">
+      <div class="card"><div class="step-num">1</div><h3>Sign in</h3><p>With Google, email or GitHub.</p></div>
+      <div class="card"><div class="step-num">2</div><h3>Pick where backups go</h3><p>Google Drive, ExoCloud or GitHub. All your phones share it.</p></div>
+      <div class="card"><div class="step-num">3</div><h3>Point at the folder</h3><p>Choose XPENC's <code>BACKUP XPENC</code> folder once.</p></div>
+      <div class="card"><div class="step-num">4</div><h3>It syncs itself</h3><p>After every XPENC backup, or daily — in the background.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="destinations">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Backups</div>
+      <h2>Three places. You choose.</h2>
+      <p>One destination per account, changeable any time in Settings.</p>
+    </div>
+    <div class="grid g3">
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10h8M2 13h12l-4 7"/></svg></div>
+        <h3>Google Drive <span class="tag solid">Easiest</span></h3>
+        <p>A visible <b>XPENC Backup</b> folder in your own Drive. Sign in with Google and you're done.</p>
+        <ul class="checks">
+          <li>Access only to files CONECTR made</li>
+          <li>Newest 30 backups kept</li>
+          <li>Open them yourself in Drive</li>
+        </ul>
+      </div>
+      <div class="card inverse">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <h3>ExoCloud <span class="tag">Free in beta</span></h3>
+        <p>Kept for you by ExoSynk Labs — encrypted on your phone first, so nobody else can read it. Not even us.</p>
+        <ul class="checks">
+          <li>AES-256-GCM, end-to-end</li>
+          <li>Your recovery key, never ours</li>
+          <li>No other account needed</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg></div>
+        <h3>GitHub <span class="tag">For developers</span></h3>
+        <p>A private <code>XPENC-BACKUP</code> repo in your own account, with every backup in its history.</p>
+        <ul class="checks">
+          <li>Full version history</li>
+          <li>Fast-forward-only uploads</li>
+          <li>Your repo, your rules</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Features</div>
+      <h2>Careful with your data, by design.</h2>
+    </div>
+    <div class="grid g3">
+      <div class="card"><h3>Never overwrites newer data</h3><p>Like <code>git push</code>: a phone may only replace a backup it already has. A stale phone can't wipe out another phone's newer entries.</p></div>
+      <div class="card"><h3>Conflict-safe</h3><p>Two phones backing up at the same second? The server accepts one; the other simply tries again. Nothing is lost.</p></div>
+      <div class="card"><h3>Background auto-sync</h3><p>After every XPENC backup, daily or weekly — and newer backups from your other phones are checked about hourly.</p></div>
+      <div class="card"><h3>Friends &amp; shared entries</h3><p>Add friends by username and keep a shared "who owes whom" ledger that's the same on both phones. Every entry is accepted by the other side.</p></div>
+      <div class="card"><h3>Sign in your way</h3><p>Google, a one-time email code, or GitHub. Tokens stay in Android's encrypted storage.</p></div>
+      <div class="card"><h3>Open source</h3><p>Every line is on GitHub under the MIT license. Releases are built and signed by GitHub Actions, with checksums.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="security">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Privacy &amp; security</div>
+      <h2>Your data isn't our business model.</h2>
+      <p>No ads. No analytics. No selling. Here's exactly where things go.</p>
+    </div>
+    <div class="grid g2">
+      <div class="card">
+        <h3>End-to-end encrypted ExoCloud</h3>
+        <p>Each backup is sealed on your phone with AES-256-GCM under a random 256-bit key. The key lives only on your phones and in the 52-character recovery key you save. ExoSynk stores ciphertext it cannot open.</p>
+      </div>
+      <div class="card">
+        <h3>Least access to Google</h3>
+        <p>CONECTR asks only for <code>drive.file</code>: it can see the files it created and nothing else in your Drive. Drive data goes straight between your phone and Google.</p>
+      </div>
+      <div class="card">
+        <h3>Locked-down accounts</h3>
+        <p>Every account's rows in Supabase are protected by row-level security. Friends see only what you share with them; settings are yours alone.</p>
+      </div>
+      <div class="card">
+        <h3>Verifiable releases</h3>
+        <p>Each APK is built from the public source by GitHub Actions, signed with CONECTR's release key, and published with a SHA-256 checksum.</p>
+      </div>
+    </div>
+    <p class="fine" style="margin-top:20px">Read the full <a href="/privacy">privacy policy</a>.</p>
+  </div>
+</section>
+
+<section id="apps">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Supported apps</div>
+      <h2>Built for ExoSynk Labs' offline apps.</h2>
+    </div>
+    <div class="grid g3">
+      <div class="card"><div class="app-row"><div class="app-badge">XPENC</div><div><h3>XPENC <span class="tag solid">Available</span></h3><p>Offline money manager</p></div></div></div>
+      <div class="card"><div class="app-row"><div class="app-badge dim">FITNS</div><div><h3>FITNS <span class="tag">Coming soon</span></h3><p>Fitness app</p></div></div></div>
+      <div class="card"><div class="app-row"><div class="app-badge dim">PLANR</div><div><h3>PLANR <span class="tag">Coming soon</span></h3><p>Planner app</p></div></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="tech">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Technology</div>
+      <h2>What CONECTR is built with.</h2>
+      <p>A native Android app in Flutter, a small Supabase backend, and the storage you already have.</p>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <div class="layer">App</div>
+        <h3>Flutter &amp; Dart</h3>
+        <p>One Material 3 codebase, monochrome One UI-style design, light and dark.</p>
+        <div class="chips"><span class="chip">Flutter</span><span class="chip">Dart 3</span><span class="chip">Riverpod</span><span class="chip">Material 3</span></div>
+      </div>
+      <div class="card">
+        <div class="layer">Backend</div>
+        <h3>Supabase</h3>
+        <p>Sign-in, profiles, friends and shared entries in Postgres with row-level security; live updates over Realtime.</p>
+        <div class="chips"><span class="chip">Supabase Auth</span><span class="chip">Postgres + RLS</span><span class="chip">Realtime</span><span class="chip">Storage</span></div>
+      </div>
+      <div class="card">
+        <div class="layer">Storage</div>
+        <h3>Three backends, one set of rules</h3>
+        <p>A single sync engine with pluggable stores; the rules that protect newer data are tested once and apply to all three.</p>
+        <div class="chips"><span class="chip">Google Drive API v3</span><span class="chip">GitHub REST API</span><span class="chip">ExoCloud</span></div>
+      </div>
+      <div class="card">
+        <div class="layer">Security</div>
+        <h3>Encryption &amp; keys</h3>
+        <p>AES-256-GCM for ExoCloud, HMAC-SHA-256 key checks, tokens in Android's Keystore-backed secure storage.</p>
+        <div class="chips"><span class="chip">AES-256-GCM</span><span class="chip">HMAC-SHA-256</span><span class="chip">Android Keystore</span></div>
+      </div>
+      <div class="card">
+        <div class="layer">Android</div>
+        <h3>Native integrations</h3>
+        <p>Background sync with WorkManager, the shared backup folder through the Storage Access Framework, Google sign-in through Credential Manager.</p>
+        <div class="chips"><span class="chip">WorkManager</span><span class="chip">Storage Access Framework</span><span class="chip">Credential Manager</span></div>
+      </div>
+      <div class="card">
+        <div class="layer">Delivery</div>
+        <h3>Built in the open</h3>
+        <p>Every push is analysed and tested; releases are built, signed and published by CI. This site is plain HTML on Vercel — no trackers.</p>
+        <div class="chips"><span class="chip">GitHub Actions</span><span class="chip">Signed APKs</span><span class="chip">Vercel</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">FAQ</div>
+      <h2>Questions, answered.</h2>
+    </div>
+    <details>
+      <summary>Is CONECTR free?</summary>
+      <p>Yes. CONECTR is free and open source. Google Drive and GitHub backups use your own accounts. ExoCloud is free during beta (your newest 10 backups, up to 10 MB each); a paid tier with more room may come later.</p>
+    </details>
+    <details>
+      <summary>Can ExoSynk Labs read my data?</summary>
+      <p>No. Drive and GitHub backups live in your own accounts. ExoCloud backups are encrypted on your phone with a key we never receive.</p>
+    </details>
+    <details>
+      <summary>What happens if I lose my phone?</summary>
+      <p>Install CONECTR on your new phone, sign in, and pull your latest backup — XPENC takes it in. With ExoCloud, you'll need your recovery key.</p>
+    </details>
+    <details>
+      <summary>What if I lose my ExoCloud recovery key?</summary>
+      <p>Any phone that's still signed in can show it again in Settings → Backup storage. If every phone and the key are gone, the encrypted backups can't be opened by anyone — that's what end-to-end means. Keep it in a password manager.</p>
+    </details>
+    <details>
+      <summary>Why a separate app instead of syncing inside XPENC?</summary>
+      <p>So XPENC can promise it never goes online. Everything that needs the internet lives in CONECTR, which you can install — or not.</p>
+    </details>
+    <details>
+      <summary>Is it on the Play Store?</summary>
+      <p>Not yet. Download the signed APK from GitHub Releases; every release lists a SHA-256 checksum to verify it.</p>
+    </details>
+  </div>
+</section>
+
+<section id="download">
+  <div class="wrap">
+    <div class="band">
+      <h2>Back up your offline apps.</h2>
+      <p>Open this page on your Android phone, download the APK and open it. Updates install over the top.</p>
+      <div class="cta">
+        <a class="btn btn-primary js-download" href="https://github.com/PATILYASHH/CONECTR/releases/latest">Download for Android</a>
+        <a class="btn btn-ghost" href="https://github.com/PATILYASHH/CONECTR/releases">All releases</a>
+      </div>
+      <p class="fine" style="margin:16px 0 0"><span class="js-version">Latest release</span> · Android 7.0 or newer</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>
+      <a class="brand" href="/"><img class="logo" src="/assets/logo.png" alt="">CONECTR</a>
+      <div class="exosynk">An <b>ExoSynk Labs</b> project · MIT License</div>
+    </div>
+    <div class="foot-links">
+      <a href="/privacy">Privacy</a>
+      <a href="https://github.com/PATILYASHH/CONECTR">Source</a>
+      <a href="https://github.com/PATILYASHH/CONECTR/issues/new?template=bug_report.yml">Report a bug</a>
+      <a href="https://exosynk.com/exosynk-labs">ExoSynk Labs</a>
+      <a href="https://exosynk.com">exosynk.com</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Point the download buttons straight at the newest APK, and show its
+  // version. Falls back to the releases page if GitHub can't be reached.
+  fetch("https://api.github.com/repos/PATILYASHH/CONECTR/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (release) {
+      if (!release) return;
+      var apk = (release.assets || []).find(function (a) { return /\.apk$/.test(a.name); });
+      if (apk) {
+        document.querySelectorAll(".js-download").forEach(function (a) {
+          a.href = apk.browser_download_url;
+        });
+      }
+      document.querySelectorAll(".js-version").forEach(function (el) {
+        el.textContent = "Version " + String(release.tag_name).replace(/^v/, "");
+      });
+    })
+    .catch(function () {});
+</script>
+</body>
+</html>
